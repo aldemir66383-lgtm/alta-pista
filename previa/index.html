@@ -1,0 +1,2586 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Prévia do Balcão</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Titillium+Web:wght@400;600;700;900&display=swap">
+<style>
+/* =============================================================================
+   Balcão de Inscrições — identidade visual
+   Direção: sites de cronometragem esportiva. Grafite dominante, amarelo de
+   sinalização como único acento, tipografia técnica em caixa alta.
+   ========================================================================== */
+
+:root{
+  /* superfícies claras */
+  --fundo:#F4F5F6;
+  --superficie:#FFFFFF;
+  --superficie-2:#EDEFF1;
+  --borda:#DCE0E4;
+  --borda-forte:#C4CAD1;
+
+  /* tinta */
+  --tinta:#212529;
+  --tinta-media:#5B646D;
+  --tinta-fraca:#8B949D;
+
+  /* faixas escuras (iguais nos dois temas: são o "uniforme" da marca) */
+  --grafite:#212529;
+  --grafite-2:#2A3138;
+  --grafite-3:#171B1F;
+  --sobre-grafite:#FFFFFF;
+  --sobre-grafite-fraco:#A8B0B8;
+
+  /* acento — amarelo de sinalização, um grau mais quente que o neon puro,
+     sempre usado como fundo com tinta escura por cima (contraste ~14:1) */
+  --amarelo:#FFE01B;
+  --amarelo-escuro:#E8C900;
+  --sobre-amarelo:#171B1F;
+
+  /* estados */
+  --pago:#12805C;
+  --pago-veu:#DFF3EC;
+  --pendente:#9A6B00;
+  --pendente-veu:#FBF0D8;
+  --cancelado:#B03A44;
+  --cancelado-veu:#FAE5E7;
+  --espera:#0B6E99;
+  --espera-veu:#DFEFF7;
+
+  --sombra:0 1px 2px rgba(33,37,41,.06), 0 10px 30px -18px rgba(33,37,41,.4);
+  --r:4px;
+  --topo-altura:66px;
+}
+
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --fundo:#101418;
+    --superficie:#1A1F24;
+    --superficie-2:#22282E;
+    --borda:#2B333A;
+    --borda-forte:#3A444D;
+    --tinta:#EDF1F4;
+    --tinta-media:#9BA5AE;
+    --tinta-fraca:#6F7A83;
+    --pago:#3FCB9B;
+    --pago-veu:#0F2C24;
+    --pendente:#E3B45E;
+    --pendente-veu:#2C2415;
+    --cancelado:#EC8891;
+    --cancelado-veu:#2E1A1D;
+    --espera:#5FB8E6;
+    --espera-veu:#122A38;
+    --sombra:0 1px 2px rgba(0,0,0,.5), 0 10px 30px -18px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"]{
+  --fundo:#101418;
+  --superficie:#1A1F24;
+  --superficie-2:#22282E;
+  --borda:#2B333A;
+  --borda-forte:#3A444D;
+  --tinta:#EDF1F4;
+  --tinta-media:#9BA5AE;
+  --tinta-fraca:#6F7A83;
+  --pago:#3FCB9B;
+  --pago-veu:#0F2C24;
+  --pendente:#E3B45E;
+  --pendente-veu:#2C2415;
+  --cancelado:#EC8891;
+  --cancelado-veu:#2E1A1D;
+  --espera:#5FB8E6;
+  --espera-veu:#122A38;
+  --sombra:0 1px 2px rgba(0,0,0,.5), 0 10px 30px -18px rgba(0,0,0,.9);
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  background:var(--fundo);
+  color:var(--tinta);
+  font-family:"Titillium Web","Segoe UI",system-ui,sans-serif;
+  font-size:16px;line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{margin:0;font-weight:700;line-height:1.15;text-wrap:balance;letter-spacing:-.005em}
+h1{font-size:clamp(1.6rem,4vw,2.3rem);text-transform:uppercase;font-weight:900;letter-spacing:.005em}
+h2{font-size:1.35rem;text-transform:uppercase;font-weight:700}
+h3{font-size:1.05rem}
+p{margin:0}
+a{color:inherit}
+button{font:inherit;color:inherit}
+img{max-width:100%;display:block}
+:focus-visible{outline:3px solid var(--amarelo);outline-offset:2px;border-radius:2px}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.limite{max-width:1180px;margin:0 auto;padding:0 20px}
+
+/* ---------------------------------------------------------------- topo -- */
+.topo{
+  position:sticky;top:0;z-index:40;background:var(--grafite);
+  border-bottom:3px solid var(--amarelo);
+}
+.topo-in{
+  max-width:1180px;margin:0 auto;padding:0 20px;height:var(--topo-altura);
+  display:flex;align-items:center;gap:18px;
+}
+.marca{display:flex;align-items:center;gap:11px;margin-right:auto;min-width:0}
+.marca .selo{
+  width:38px;height:38px;flex:none;border-radius:50%;overflow:hidden;
+  background:var(--amarelo);color:var(--sobre-amarelo);
+  display:grid;place-items:center;font-weight:900;font-size:16px;
+  letter-spacing:-.02em;
+}
+.marca .selo.com-logo{background:transparent}
+.marca b{
+  display:block;color:var(--sobre-grafite);font-size:1.22rem;font-weight:900;
+  text-transform:uppercase;letter-spacing:.09em;line-height:1.1;
+}
+.marca small{
+  display:block;color:var(--sobre-grafite-fraco);font-size:.66rem;
+  letter-spacing:.18em;text-transform:uppercase;line-height:1.3;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;
+}
+nav{display:flex;gap:2px}
+nav button{
+  border:0;background:transparent;padding:9px 14px;cursor:pointer;
+  color:var(--sobre-grafite-fraco);font-size:.82rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.08em;border-bottom:3px solid transparent;
+  margin-bottom:-3px;transition:color .15s ease,border-color .15s ease;
+}
+nav button:hover{color:var(--sobre-grafite)}
+nav button[aria-current="page"]{color:var(--amarelo);border-bottom-color:var(--amarelo)}
+.identidade{display:flex;align-items:center;gap:10px}
+.identidade .quem{
+  color:var(--sobre-grafite-fraco);font-size:.78rem;max-width:170px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+@media(max-width:820px){
+  .topo-in{height:auto;padding:12px 20px;flex-wrap:wrap;gap:10px}
+  .marca{margin-right:auto}
+  nav{order:3;width:100%;overflow-x:auto;margin-bottom:-3px}
+  .identidade .quem{display:none}
+}
+
+/* --------------------------------------------------------------- botões -- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border:2px solid var(--amarelo);background:var(--amarelo);color:var(--sobre-amarelo);
+  padding:10px 20px;border-radius:var(--r);cursor:pointer;text-decoration:none;
+  font-weight:700;font-size:.85rem;text-transform:uppercase;letter-spacing:.07em;
+  transition:background .15s ease,transform .06s ease;
+}
+.btn:hover{background:var(--amarelo-escuro);border-color:var(--amarelo-escuro)}
+.btn:active{transform:translateY(1px)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.fantasma{background:transparent;color:var(--tinta);border-color:var(--borda-forte)}
+.btn.fantasma:hover{background:var(--superficie-2);border-color:var(--tinta-media)}
+.btn.escura{background:var(--grafite);border-color:var(--grafite);color:var(--sobre-grafite)}
+.btn.escura:hover{background:var(--grafite-2);border-color:var(--grafite-2)}
+.btn.clara{background:transparent;color:var(--sobre-grafite);border-color:rgba(255,255,255,.5)}
+.btn.clara:hover{background:rgba(255,255,255,.12);border-color:var(--sobre-grafite)}
+.btn.perigo{background:transparent;color:var(--cancelado);border-color:var(--borda-forte)}
+.btn.perigo:hover{background:var(--cancelado-veu);border-color:var(--cancelado)}
+.btn.pequeno{padding:6px 12px;font-size:.74rem;letter-spacing:.06em;border-width:1px}
+.btn.largo{width:100%}
+
+/* ---------------------------------------------------------------- hero -- */
+.hero{position:relative;background:var(--grafite-3);min-height:440px;overflow:hidden}
+.hero-slide{
+  position:absolute;inset:0;display:flex;align-items:flex-end;
+  opacity:0;visibility:hidden;transition:opacity .55s ease,visibility .55s;
+}
+.hero-slide.ativo{opacity:1;visibility:visible}
+.hero-foto{position:absolute;inset:0;background-size:cover;background-position:center;opacity:.55}
+.hero-slide::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,rgba(23,27,31,.94) 0%,rgba(23,27,31,.72) 45%,rgba(23,27,31,.25) 100%);
+}
+.hero-in{position:relative;z-index:2;width:100%;max-width:1180px;margin:0 auto;padding:44px 20px 52px}
+
+/* controles do carrossel */
+.hero-seta{
+  position:absolute;top:50%;transform:translateY(-50%);z-index:6;
+  width:44px;height:44px;border-radius:50%;border:2px solid rgba(255,255,255,.45);
+  background:rgba(23,27,31,.55);color:#fff;cursor:pointer;
+  display:grid;place-items:center;font-size:1.1rem;line-height:1;
+  transition:background .15s ease,border-color .15s ease;
+}
+.hero-seta:hover{background:var(--amarelo);color:var(--sobre-amarelo);border-color:var(--amarelo)}
+.hero-seta.anterior{left:16px}
+.hero-seta.proximo{right:16px}
+.hero-pontos{
+  position:absolute;left:0;right:0;bottom:16px;z-index:6;
+  display:flex;justify-content:center;gap:8px;
+}
+.hero-pontos button{
+  width:30px;height:5px;border:0;padding:0;border-radius:3px;cursor:pointer;
+  background:rgba(255,255,255,.38);transition:background .2s ease,width .2s ease;
+}
+.hero-pontos button[aria-current="true"]{background:var(--amarelo);width:46px}
+.hero-contador{
+  position:absolute;right:20px;top:20px;z-index:6;color:var(--sobre-grafite-fraco);
+  font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  background:rgba(23,27,31,.6);padding:5px 11px;border-radius:2px;
+}
+@media(max-width:640px){
+  .hero{min-height:400px}
+  .hero-seta{width:36px;height:36px}
+  .hero-seta.anterior{left:8px}
+  .hero-seta.proximo{right:8px}
+  .hero-contador{display:none}
+}
+.hero .destaque-selo{
+  display:inline-block;background:var(--amarelo);color:var(--sobre-amarelo);
+  font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.16em;
+  padding:4px 11px;border-radius:2px;margin-bottom:14px;
+}
+.hero h1{color:var(--sobre-grafite);max-width:20ch;margin-bottom:12px}
+.hero .hero-meta{
+  display:flex;flex-wrap:wrap;gap:8px 22px;color:var(--sobre-grafite-fraco);
+  font-size:.94rem;font-weight:600;margin-bottom:22px;
+}
+.hero .hero-meta span{display:flex;align-items:center;gap:7px}
+.hero .hero-meta i{font-style:normal;color:var(--amarelo)}
+.hero .acoes{margin:0}
+
+/* --------------------------------------------------------------- seções -- */
+main{padding-bottom:60px}
+.faixa{padding:38px 0}
+.faixa.compacta{padding:26px 0}
+.cabeca-secao{
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--borda);
+}
+.cabeca-secao h2{position:relative;padding-left:14px}
+.cabeca-secao h2::before{
+  content:"";position:absolute;left:0;top:.15em;bottom:.15em;width:5px;background:var(--amarelo);
+}
+.cabeca-secao .ao-lado{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.cabeca-secao p{width:100%;color:var(--tinta-media);font-size:.92rem}
+
+.secao{display:none}
+.secao.ativa{display:block}
+
+/* ---------------------------------------------------------------- filtro */
+.filtro{
+  display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;
+  background:var(--superficie);border:1px solid var(--borda);border-radius:var(--r);
+  padding:14px;margin-bottom:22px;
+}
+.filtro label{flex:1;min-width:150px}
+.filtro .contagem{font-size:.8rem;color:var(--tinta-fraca);font-weight:600;padding-bottom:9px}
+
+/* ---------------------------------------------------- cartão de evento -- */
+.grade{display:grid;gap:22px;grid-template-columns:repeat(auto-fill,minmax(292px,1fr))}
+.cartao{
+  background:var(--superficie);border:1px solid var(--borda);border-radius:var(--r);
+  box-shadow:var(--sombra);overflow:hidden;display:flex;flex-direction:column;
+  transition:transform .16s ease,box-shadow .16s ease;
+}
+.cartao:hover{transform:translateY(-3px);box-shadow:0 14px 34px -18px rgba(33,37,41,.55)}
+.cartao.encerrado{opacity:.62}
+.capa{position:relative;aspect-ratio:3/2;background:var(--grafite-2);overflow:hidden}
+.capa img{width:100%;height:100%;object-fit:cover}
+.capa .sem-foto{
+  position:absolute;inset:0;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--grafite) 0%,var(--grafite-2) 100%);
+  color:rgba(255,255,255,.22);font-size:2.6rem;font-weight:900;letter-spacing:.1em;
+}
+.data-selo{
+  position:absolute;left:12px;top:12px;z-index:2;background:var(--amarelo);
+  color:var(--sobre-amarelo);border-radius:3px;padding:5px 9px 6px;text-align:center;
+  min-width:52px;box-shadow:0 2px 10px rgba(0,0,0,.35);
+}
+.data-selo .mes{display:block;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em}
+.data-selo .dia{display:block;font-size:1.35rem;font-weight:900;line-height:1.05}
+.modalidade{
+  position:absolute;right:12px;top:12px;z-index:2;
+  background:rgba(23,27,31,.86);color:#fff;font-size:.64rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.11em;padding:5px 10px;border-radius:2px;
+}
+.cartao-corpo{padding:20px 18px;display:flex;flex-direction:column;gap:12px;flex:1}
+.cartao-corpo h3{text-transform:uppercase;font-weight:700;font-size:1.08rem;line-height:1.28;min-height:2.56em}
+.linhas{display:flex;flex-direction:column;gap:6px;font-size:.88rem;color:var(--tinta-media)}
+.linhas span{display:flex;gap:8px;align-items:baseline}
+.linhas i{font-style:normal;color:var(--tinta-fraca);width:1em;flex:none;text-align:center}
+.preco-linha{
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+  margin-top:auto;padding-top:10px;border-top:1px dashed var(--borda);
+}
+.preco{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:1.08rem;font-variant-numeric:tabular-nums}
+.preco small{font-family:"Titillium Web",sans-serif;font-size:.72rem;color:var(--tinta-fraca);font-weight:600;text-transform:uppercase;letter-spacing:.07em}
+.vagas{font-size:.76rem;color:var(--tinta-fraca);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+
+/* -------------------------------------------------------------- painéis -- */
+.painel{
+  background:var(--superficie);border:1px solid var(--borda);border-radius:var(--r);
+  box-shadow:var(--sombra);padding:24px;
+}
+.painel + .painel{margin-top:20px}
+.eyebrow{font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:var(--tinta-fraca);font-weight:700}
+
+/* ------------------------------------------------------------ formulários */
+.campos{display:grid;gap:14px;margin-top:16px}
+@media(min-width:640px){.campos.duas{grid-template-columns:1fr 1fr}}
+label{display:flex;flex-direction:column;gap:5px;font-size:.75rem;font-weight:700;
+  color:var(--tinta-media);text-transform:uppercase;letter-spacing:.06em}
+label .dica{font-weight:400;color:var(--tinta-fraca);font-size:.72rem;text-transform:none;letter-spacing:0}
+input,select,textarea{
+  font:inherit;font-size:.95rem;text-transform:none;letter-spacing:0;font-weight:400;
+  color:var(--tinta);background:var(--superficie-2);
+  border:1px solid var(--borda-forte);border-radius:var(--r);padding:10px 12px;width:100%;
+}
+textarea{resize:vertical;min-height:80px;font-size:.92rem}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--amarelo);outline-offset:-1px;border-color:transparent}
+.acoes{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px;align-items:center}
+dl{margin:0}
+.linha-dados{display:flex;justify-content:space-between;gap:14px;padding:10px 0;border-bottom:1px dashed var(--borda)}
+.linha-dados:last-child{border-bottom:0}
+.linha-dados dt{color:var(--tinta-media);font-size:.8rem;margin:0;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.linha-dados dd{margin:0;font-weight:600;text-align:right}
+
+/* ---------------------------------------------------------------- tags -- */
+.tag{
+  display:inline-flex;align-items:center;gap:6px;font-size:.68rem;font-weight:700;
+  padding:4px 9px;border-radius:2px;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;
+}
+.tag::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.tag.pago{background:var(--pago-veu);color:var(--pago)}
+.tag.pendente{background:var(--pendente-veu);color:var(--pendente)}
+.tag.cancelado{background:var(--cancelado-veu);color:var(--cancelado)}
+.tag.espera{background:var(--espera-veu);color:var(--espera)}
+
+/* ------------------------------------------------------------ pagamento -- */
+.pagamento{display:grid;gap:24px}
+@media(min-width:740px){.pagamento{grid-template-columns:auto 1fr;align-items:start}}
+.qr-caixa{background:#fff;padding:14px;border-radius:var(--r);border:1px solid var(--borda-forte);width:min(250px,100%);justify-self:center}
+.qr-caixa svg{display:block;width:100%;height:auto}
+.copia{
+  font-family:"IBM Plex Mono",monospace;font-size:.73rem;line-height:1.5;word-break:break-all;
+  background:var(--superficie-2);border:1px solid var(--borda);border-radius:var(--r);
+  padding:11px;max-height:110px;overflow:auto;color:var(--tinta-media);
+}
+
+/* --------------------------------------------------------------- tabela -- */
+.rolagem{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.9rem;min-width:640px}
+th{
+  text-align:left;font-size:.68rem;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--tinta-fraca);font-weight:700;padding:0 10px 9px;border-bottom:2px solid var(--borda-forte);
+}
+td{padding:11px 10px;border-bottom:1px solid var(--borda);vertical-align:middle}
+tbody tr:hover{background:var(--superficie-2)}
+td .nome{font-weight:700}
+td .contato{color:var(--tinta-fraca);font-size:.81rem}
+.respostas{color:var(--tinta-fraca);font-size:.81rem}
+.pos{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:1rem;color:var(--tinta-media)}
+.pos.podio{color:var(--sobre-amarelo);background:var(--amarelo);border-radius:2px;padding:2px 7px;display:inline-block}
+
+/* ------------------------------------------------------------- chamadas -- */
+.chamada{
+  background:var(--grafite);color:var(--sobre-grafite);border-radius:var(--r);
+  padding:34px 28px;text-align:center;display:flex;flex-direction:column;
+  align-items:center;gap:14px;
+}
+.chamada h2{color:var(--sobre-grafite)}
+.chamada p{color:var(--sobre-grafite-fraco);max-width:56ch}
+.chamada .acoes{margin-top:6px;justify-content:center}
+
+.vazio{
+  border:2px dashed var(--borda-forte);border-radius:var(--r);padding:40px 24px;
+  text-align:center;color:var(--tinta-media);background:var(--superficie);
+}
+.vazio h3{margin-bottom:6px;text-transform:uppercase}
+.aviso{
+  display:flex;gap:11px;align-items:flex-start;padding:13px 15px;border-radius:var(--r);
+  background:var(--pendente-veu);color:var(--pendente);font-size:.89rem;font-weight:600;
+  border-left:4px solid currentColor;
+}
+.aviso.info{background:var(--espera-veu);color:var(--espera)}
+.erro{
+  background:var(--cancelado-veu);color:var(--cancelado);border-left:4px solid currentColor;
+  padding:12px 15px;border-radius:var(--r);font-size:.89rem;font-weight:600;margin-top:14px;
+}
+.carregando{color:var(--tinta-fraca);font-size:.9rem;padding:34px 0;text-align:center;
+  text-transform:uppercase;letter-spacing:.1em;font-weight:700}
+
+.numeros{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:20px}
+.numero{background:var(--superficie);border:1px solid var(--borda);border-left:4px solid var(--amarelo);border-radius:var(--r);padding:14px 16px}
+.numero b{display:block;font-size:1.7rem;line-height:1.1;font-weight:900}
+.numero span{font-size:.68rem;letter-spacing:.11em;text-transform:uppercase;color:var(--tinta-fraca);font-weight:700}
+
+.torrada{
+  position:fixed;left:50%;bottom:26px;transform:translate(-50%,14px);z-index:80;
+  background:var(--grafite);color:var(--sobre-grafite);padding:12px 22px;border-radius:var(--r);
+  font-size:.85rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+  border-left:4px solid var(--amarelo);box-shadow:0 12px 34px -12px rgba(0,0,0,.6);
+  opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;max-width:90vw;
+}
+.torrada.ver{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto}}
+
+/* --------------------------------------------------- sub-editores painel */
+.sub{border:1px solid var(--borda);border-radius:var(--r);padding:16px;background:var(--superficie-2);margin-top:16px}
+.sub h4{font-size:.9rem;text-transform:uppercase;letter-spacing:.06em}
+.sub .explica{font-size:.82rem;color:var(--tinta-fraca);margin-top:3px;font-weight:400}
+.mini-lista{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.mini-linha{
+  display:grid;gap:8px;align-items:end;grid-template-columns:1fr;
+  background:var(--superficie);border:1px solid var(--borda);border-radius:var(--r);padding:11px;
+}
+@media(min-width:720px){
+  .mini-linha.lote{grid-template-columns:1.5fr .9fr 1fr .8fr auto}
+  .mini-linha.campo{grid-template-columns:1.4fr .9fr 1.6fr auto auto}
+}
+.mini-linha input,.mini-linha select{padding:7px 9px;font-size:.87rem}
+.caixinha{flex-direction:row!important;align-items:center;gap:8px;text-transform:none;letter-spacing:0;
+  font-size:.82rem;font-weight:600;color:var(--tinta);white-space:nowrap}
+.caixinha input{width:auto}
+.mini-vazio{font-size:.85rem;color:var(--tinta-fraca);padding:8px 0;font-weight:400}
+.linha-item{
+  display:flex;gap:12px;align-items:center;justify-content:space-between;
+  padding:14px 0;border-bottom:1px solid var(--borda);flex-wrap:wrap;
+}
+.linha-item:last-child{border-bottom:0}
+.linha-item .quem{min-width:0}
+.linha-item .quem b{display:block;text-transform:uppercase;font-size:.95rem}
+.linha-item .quem small{color:var(--tinta-fraca)}
+.previa-capa{
+  width:100%;max-width:280px;aspect-ratio:16/9;object-fit:cover;
+  border:1px solid var(--borda);border-radius:var(--r);margin-top:8px;
+}
+
+/* --------------------------------------------------------------- edital -- */
+.edital{margin-top:22px;padding-top:22px;border-top:1px solid var(--borda);max-width:68ch;line-height:1.75}
+.edital h3{margin:24px 0 8px;font-size:1rem;text-transform:uppercase;letter-spacing:.04em;
+  padding-left:12px;border-left:4px solid var(--amarelo)}
+.edital h3:first-child{margin-top:0}
+.edital p{margin:0 0 12px;color:var(--tinta-media)}
+.edital ul{margin:0 0 14px;padding-left:20px;color:var(--tinta-media)}
+.edital li{margin-bottom:6px}
+.edital strong{color:var(--tinta);font-weight:700}
+
+.para-quem{
+  display:flex;gap:14px;flex-wrap:wrap;margin:18px 0 4px;
+  background:var(--superficie-2);border:1px solid var(--borda);border-radius:var(--r);padding:12px 14px;
+}
+.para-quem label{flex-direction:row;align-items:center;gap:8px;font-size:.87rem;font-weight:600;
+  color:var(--tinta);cursor:pointer;text-transform:none;letter-spacing:0}
+.para-quem input{width:auto}
+.entrar-caixa{max-width:470px;margin:44px auto}
+
+/* --------------------------------------------------------------- rodapé -- */
+.rodape{background:var(--grafite);color:var(--sobre-grafite-fraco);margin-top:40px;
+  border-top:3px solid var(--amarelo);font-size:.88rem}
+.rodape-in{max-width:1180px;margin:0 auto;padding:38px 20px 26px;
+  display:grid;gap:28px;grid-template-columns:1fr}
+@media(min-width:760px){.rodape-in{grid-template-columns:2fr 1fr 1fr}}
+.rodape h4{color:var(--sobre-grafite);font-size:.72rem;text-transform:uppercase;
+  letter-spacing:.16em;margin-bottom:12px}
+.rodape ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+.rodape a{color:var(--sobre-grafite-fraco);text-decoration:none}
+.rodape a:hover{color:var(--amarelo)}
+.rodape .sobre{max-width:46ch;line-height:1.65}
+.rodape-base{border-top:1px solid rgba(255,255,255,.12);padding:14px 20px;
+  max-width:1180px;margin:0 auto;font-size:.76rem;color:var(--tinta-fraca)}
+
+@media print{
+  .topo,nav,.acoes,.rodape,.torrada,.filtro,.hero{display:none!important}
+  body{background:#fff;color:#000}
+  .painel{box-shadow:none;border:0;padding:0}
+}
+
+</style>
+</head>
+<body>
+
+
+<div style="background:#FFEE00;color:#171B1F;padding:10px 20px;font:600 13px/1.5 'Titillium Web',sans-serif;text-align:center">
+  PRÉVIA VISUAL — dados de exemplo, nada é gravado. Entre com qualquer e-mail para ver a conta e o painel.
+</div>
+
+
+<header class="topo">
+  <div class="topo-in">
+    <div class="marca">
+      <div class="selo">B</div>
+      <div>
+        <b>Balcão</b>
+        <small id="marca-org">Inscrições esportivas</small>
+      </div>
+    </div>
+    <nav id="menu">
+      <button data-ir="eventos" aria-current="page">Eventos</button>
+      <button data-ir="resultados">Resultados</button>
+      <button data-ir="minhas">Minhas inscrições</button>
+      <button data-ir="painel" hidden>Painel</button>
+    </nav>
+    <div class="identidade" id="identidade"></div>
+  </div>
+</header>
+
+<main>
+  <section id="v-eventos"    class="secao ativa"></section>
+  <section id="v-evento"     class="secao"></section>
+  <section id="v-inscricao"  class="secao"></section>
+  <section id="v-minhas"     class="secao"></section>
+  <section id="v-resultados" class="secao"></section>
+  <section id="v-entrar"     class="secao"></section>
+  <section id="v-painel"     class="secao"></section>
+</main>
+
+<footer class="rodape">
+  <div class="rodape-in">
+    <div>
+      <h4>O Balcão</h4>
+      <p class="sobre" id="rodape-sobre">
+        Sistema de inscrições e pagamento por Pix para as corridas e eventos
+        esportivos da escola e da comunidade. Cada participante acompanha a
+        própria inscrição pela conta; a lista completa fica só com a organização.
+      </p>
+    </div>
+    <div>
+      <h4>Explorar</h4>
+      <ul>
+        <li><a href="#" data-ir="eventos">Eventos abertos</a></li>
+        <li><a href="#" data-ir="resultados">Resultados</a></li>
+        <li><a href="#" data-ir="minhas">Minhas inscrições</a></li>
+        <li><a href="#" data-ir="entrar">Entrar na conta</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Organização</h4>
+      <ul id="rodape-contato">
+        <li><span>Fale com a comissão organizadora</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="rodape-base">
+    <span id="rodape-assinatura">Balcão de Inscrições</span>
+  </div>
+</footer>
+
+<div class="torrada" id="torrada" role="status" aria-live="polite"></div>
+
+<script type="module" src="app.js"></script>
+
+<script>
+// Codificador de QR Code (modo byte, correcao nivel M, versoes 1-15).
+// Extraido do prototipo ja validado do Balcao de Inscricoes.
+const QR = (function () {
+  const EXP = new Array(512), LOG = new Array(256);
+  (function () {
+    let x = 1;
+    for (let i = 0; i < 255; i++) { EXP[i] = x; LOG[x] = i; x <<= 1; if (x & 0x100) x ^= 0x11d; }
+    for (let i = 255; i < 512; i++) EXP[i] = EXP[i - 255];
+  })();
+  const mul = (a, b) => (a === 0 || b === 0) ? 0 : EXP[LOG[a] + LOG[b]];
+
+  function genPoly(n) {
+    let p = [1];
+    for (let i = 0; i < n; i++) {
+      const np = new Array(p.length + 1).fill(0);
+      for (let j = 0; j < p.length; j++) { np[j] ^= p[j]; np[j + 1] ^= mul(p[j], EXP[i]); }
+      p = np;
+    }
+    return p;
+  }
+  function ecBytes(data, n) {
+    const gen = genPoly(n);
+    const res = new Array(data.length + n).fill(0);
+    for (let i = 0; i < data.length; i++) res[i] = data[i];
+    for (let i = 0; i < data.length; i++) {
+      const c = res[i];
+      if (c === 0) continue;
+      for (let j = 0; j < gen.length; j++) res[i + j] ^= mul(gen[j], c);
+    }
+    return res.slice(data.length);
+  }
+
+  // versão: [ec por bloco, blocos grupo1, palavras g1, blocos g2, palavras g2, capacidade em bytes]
+  const TAB = {
+    1: [10, 1, 16, 0, 0, 14], 2: [16, 1, 28, 0, 0, 26], 3: [26, 1, 44, 0, 0, 42],
+    4: [18, 2, 32, 0, 0, 62], 5: [24, 2, 43, 0, 0, 84], 6: [16, 4, 27, 0, 0, 106],
+    7: [18, 4, 31, 0, 0, 122], 8: [22, 2, 38, 2, 39, 152], 9: [22, 3, 36, 2, 37, 180],
+    10: [26, 4, 43, 1, 44, 213], 11: [30, 1, 50, 4, 51, 251], 12: [22, 6, 36, 2, 37, 287],
+    13: [22, 8, 37, 1, 38, 331], 14: [24, 4, 40, 5, 41, 362], 15: [24, 5, 41, 5, 42, 412]
+  };
+  const ALINHA = {
+    1: [], 2: [6, 18], 3: [6, 22], 4: [6, 26], 5: [6, 30], 6: [6, 34], 7: [6, 22, 38],
+    8: [6, 24, 42], 9: [6, 26, 46], 10: [6, 28, 50], 11: [6, 30, 54], 12: [6, 32, 58],
+    13: [6, 34, 62], 14: [6, 26, 46, 66], 15: [6, 26, 48, 70]
+  };
+
+  function utf8(s) {
+    const out = [];
+    for (const b of new TextEncoder().encode(s)) out.push(b);
+    return out;
+  }
+  function restoBCH(v, poly) {
+    const grauPoly = Math.floor(Math.log2(poly));
+    let r = v;
+    while (Math.floor(Math.log2(r)) >= grauPoly && r !== 0) {
+      r ^= poly << (Math.floor(Math.log2(r)) - grauPoly);
+    }
+    return r;
+  }
+
+  function matriz(texto) {
+    const dados = utf8(texto);
+    let versao = 0;
+    for (let v = 1; v <= 15; v++) { if (dados.length <= TAB[v][5]) { versao = v; break; } }
+    if (!versao) throw new Error("conteúdo longo demais para o QR");
+    const [ecN, b1, w1, b2, w2] = TAB[versao];
+    const totalDados = b1 * w1 + b2 * w2;
+
+    // fluxo de bits
+    const bits = [];
+    const põe = (val, n) => { for (let i = n - 1; i >= 0; i--) bits.push((val >> i) & 1); };
+    põe(0b0100, 4);
+    põe(dados.length, versao >= 10 ? 16 : 8);
+    for (const b of dados) põe(b, 8);
+    const capBits = totalDados * 8;
+    for (let i = 0; i < 4 && bits.length < capBits; i++) bits.push(0);
+    while (bits.length % 8) bits.push(0);
+    const bytes = [];
+    for (let i = 0; i < bits.length; i += 8) {
+      let v = 0; for (let j = 0; j < 8; j++) v = (v << 1) | bits[i + j];
+      bytes.push(v);
+    }
+    const enchimento = [0xEC, 0x11];
+    let k = 0;
+    while (bytes.length < totalDados) bytes.push(enchimento[k++ % 2]);
+
+    // blocos + correção de erro
+    const blocosD = [], blocosE = [];
+    let p = 0;
+    for (let i = 0; i < b1; i++) { const bl = bytes.slice(p, p + w1); p += w1; blocosD.push(bl); blocosE.push(ecBytes(bl, ecN)); }
+    for (let i = 0; i < b2; i++) { const bl = bytes.slice(p, p + w2); p += w2; blocosD.push(bl); blocosE.push(ecBytes(bl, ecN)); }
+    const finais = [];
+    const maxW = Math.max(w1, w2);
+    for (let i = 0; i < maxW; i++) for (const bl of blocosD) if (i < bl.length) finais.push(bl[i]);
+    for (let i = 0; i < ecN; i++) for (const bl of blocosE) finais.push(bl[i]);
+
+    // matriz
+    const n = 17 + versao * 4;
+    const m = Array.from({ length: n }, () => new Array(n).fill(0));
+    const res = Array.from({ length: n }, () => new Array(n).fill(false));
+    const set = (r, c, v) => { m[r][c] = v; res[r][c] = true; };
+
+    function localizador(lr, lc) {
+      for (let r = -1; r <= 7; r++) for (let c = -1; c <= 7; c++) {
+        const rr = lr + r, cc = lc + c;
+        if (rr < 0 || cc < 0 || rr >= n || cc >= n) continue;
+        const dentro = (r >= 0 && r <= 6 && (c === 0 || c === 6)) ||
+                       (c >= 0 && c <= 6 && (r === 0 || r === 6)) ||
+                       (r >= 2 && r <= 4 && c >= 2 && c <= 4);
+        set(rr, cc, dentro ? 1 : 0);
+      }
+    }
+    localizador(0, 0); localizador(0, n - 7); localizador(n - 7, 0);
+
+    for (let i = 8; i < n - 8; i++) { const v = i % 2 === 0 ? 1 : 0; set(6, i, v); set(i, 6, v); }
+
+    for (const r of ALINHA[versao]) for (const c of ALINHA[versao]) {
+      if ((r <= 8 && c <= 8) || (r <= 8 && c >= n - 9) || (r >= n - 9 && c <= 8)) continue;
+      for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) {
+        const borda = Math.max(Math.abs(dr), Math.abs(dc));
+        set(r + dr, c + dc, borda === 1 ? 0 : 1);
+      }
+    }
+
+    set(n - 8, 8, 1); // módulo sempre escuro
+    for (let i = 0; i < 9; i++) { if (!res[8][i]) set(8, i, 0); if (!res[i][8]) set(i, 8, 0); }
+    for (let i = 0; i < 8; i++) { if (!res[8][n - 1 - i]) set(8, n - 1 - i, 0); if (!res[n - 1 - i][8]) set(n - 1 - i, 8, 0); }
+
+    if (versao >= 7) {
+      const vi = (versao << 12) | restoBCH(versao << 12, 0x1F25);
+      for (let i = 0; i < 18; i++) {
+        const bit = (vi >> i) & 1;
+        set(Math.floor(i / 3), n - 11 + (i % 3), bit);
+        set(n - 11 + (i % 3), Math.floor(i / 3), bit);
+      }
+    }
+
+    // dados em ziguezague
+    let idx = 0, subir = true;
+    for (let col = n - 1; col > 0; col -= 2) {
+      if (col === 6) col--;
+      for (let t = 0; t < n; t++) {
+        const linha = subir ? n - 1 - t : t;
+        for (let dc = 0; dc < 2; dc++) {
+          const c = col - dc;
+          if (res[linha][c]) continue;
+          const bit = idx < finais.length * 8 ? (finais[idx >> 3] >> (7 - (idx & 7))) & 1 : 0;
+          m[linha][c] = bit; idx++;
+        }
+      }
+      subir = !subir;
+    }
+
+    const mascaras = [
+      (r, c) => (r + c) % 2 === 0,
+      (r) => r % 2 === 0,
+      (r, c) => c % 3 === 0,
+      (r, c) => (r + c) % 3 === 0,
+      (r, c) => (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0,
+      (r, c) => ((r * c) % 2) + ((r * c) % 3) === 0,
+      (r, c) => (((r * c) % 2) + ((r * c) % 3)) % 2 === 0,
+      (r, c) => (((r + c) % 2) + ((r * c) % 3)) % 2 === 0
+    ];
+
+    function penalidade(g) {
+      let p = 0;
+      for (let i = 0; i < n; i++) {
+        for (const eixo of [0, 1]) {
+          let run = 1;
+          for (let j = 1; j < n; j++) {
+            const a = eixo ? g[j][i] : g[i][j], b = eixo ? g[j - 1][i] : g[i][j - 1];
+            if (a === b) run++; else { if (run >= 5) p += 3 + (run - 5); run = 1; }
+          }
+          if (run >= 5) p += 3 + (run - 5);
+        }
+      }
+      for (let r = 0; r < n - 1; r++) for (let c = 0; c < n - 1; c++) {
+        const v = g[r][c];
+        if (v === g[r][c + 1] && v === g[r + 1][c] && v === g[r + 1][c + 1]) p += 3;
+      }
+      const alvo = [1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0];
+      const casa = (arr, i) => {
+        for (let k = 0; k < 11; k++) if (arr[i + k] !== alvo[k]) return false;
+        return true;
+      };
+      for (let i = 0; i < n; i++) {
+        const lin = g[i], col = g.map(r => r[i]);
+        const linR = lin.slice().reverse(), colR = col.slice().reverse();
+        for (let j = 0; j + 11 <= n; j++) {
+          if (casa(lin, j)) p += 40;
+          if (casa(linR, j)) p += 40;
+          if (casa(col, j)) p += 40;
+          if (casa(colR, j)) p += 40;
+        }
+      }
+      let escuros = 0;
+      for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) escuros += g[r][c];
+      const pct = (escuros * 100) / (n * n);
+      p += Math.floor(Math.abs(pct - 50) / 5) * 10;
+      return p;
+    }
+
+    let melhor = null, melhorP = Infinity;
+    for (let mk = 0; mk < 8; mk++) {
+      const g = m.map(r => r.slice());
+      for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+        if (!res[r][c] && mascaras[mk](r, c)) g[r][c] ^= 1;
+      }
+      const fmt = ((0b00 << 3) | mk); // nível M = 00
+      const bitsFmt = ((fmt << 10) | restoBCH(fmt << 10, 0x537)) ^ 0x5412;
+      const bitF = i => (bitsFmt >> i) & 1;
+      // primeira cópia, em volta do localizador superior esquerdo
+      for (let i = 0; i <= 5; i++) g[i][8] = bitF(i);
+      g[7][8] = bitF(6);
+      g[8][8] = bitF(7);
+      g[8][7] = bitF(8);
+      for (let i = 9; i < 15; i++) g[8][14 - i] = bitF(i);
+      // segunda cópia, dividida entre os outros dois localizadores
+      for (let i = 0; i < 8; i++) g[8][n - 1 - i] = bitF(i);
+      for (let i = 8; i < 15; i++) g[n - 15 + i][8] = bitF(i);
+      g[n - 8][8] = 1;
+      const pen = penalidade(g);
+      if (pen < melhorP) { melhorP = pen; melhor = g; }
+    }
+    return melhor;
+  }
+
+  function svg(texto, borda) {
+    const m = matriz(texto);
+    const n = m.length, b = borda == null ? 4 : borda, total = n + b * 2;
+    let d = "";
+    for (let r = 0; r < n; r++) {
+      let c = 0;
+      while (c < n) {
+        if (!m[r][c]) { c++; continue; }
+        let fim = c;
+        while (fim + 1 < n && m[r][fim + 1]) fim++;
+        d += "M" + (c + b) + "," + (r + b) + "h" + (fim - c + 1) + "v1h-" + (fim - c + 1) + "z";
+        c = fim + 1;
+      }
+    }
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + total + ' ' + total +
+      '" shape-rendering="crispEdges" role="img" aria-label="QR Code do Pix">' +
+      '<rect width="' + total + '" height="' + total + '" fill="#ffffff"/>' +
+      '<path d="' + d + '" fill="#000000"/></svg>';
+  }
+
+  return { svg, matriz };
+})();
+
+// Gerado a partir do prototipo ja testado do Balcao de Inscricoes.
+const Pix = (function () {
+  function crc16(s) {
+    let crc = 0xFFFF;
+    for (let i = 0; i < s.length; i++) {
+      crc ^= s.charCodeAt(i) << 8;
+      for (let j = 0; j < 8; j++) crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xFFFF : (crc << 1) & 0xFFFF;
+    }
+    return crc.toString(16).toUpperCase().padStart(4, "0");
+  }
+  const campo = (id, valor) => id + String(valor.length).padStart(2, "0") + valor;
+  const semAcento = s => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "");
+  function limpar(s, max) {
+    return semAcento(s).replace(/[^A-Za-z0-9 .\-]/g, "").trim().toUpperCase().slice(0, max);
+  }
+  function idTx(s) {
+    const t = semAcento(s).replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 25);
+    return t || "***";
+  }
+  function brcode(o) {
+    let s = campo("00", "01") + campo("01", "12");
+    s += campo("26", campo("00", "br.gov.bcb.pix") + campo("01", (o.chave || "").trim()));
+    s += campo("52", "0000") + campo("53", "986");
+    if (o.centavos > 0) s += campo("54", (o.centavos / 100).toFixed(2));
+    s += campo("58", "BR");
+    s += campo("59", limpar(o.beneficiario, 25) || "RECEBEDOR");
+    s += campo("60", limpar(o.cidade, 15) || "BRASIL");
+    s += campo("62", campo("05", idTx(o.txid)));
+    s += "6304";
+    return s + crc16(s);
+  }
+  return { brcode, crc16 };
+})();
+
+// DUBLÊ do api.js — só para conferir o visual sem um Supabase de verdade.
+// Não faz parte do projeto entregue.
+
+const configPendente = false;
+
+const foto = (a, b) => "data:image/svg+xml;utf8," + encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450">
+   <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+   <stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs>
+   <rect width="800" height="450" fill="url(#g)"/>
+   <circle cx="620" cy="120" r="150" fill="rgba(255,255,255,.10)"/>
+   <circle cx="180" cy="380" r="200" fill="rgba(0,0,0,.16)"/></svg>`);
+
+const lote = (id, nome, preco, qtd, vend, ate) =>
+  ({ id, nome, preco_centavos: preco, quantidade: qtd, vendidos: vend, vende_ate: ate || null });
+
+const EVENTOS = [
+  {
+    id: "e1", slug: "corrida-da-escola-2026", nome: "3ª Corrida da Escola 2026",
+    descricao: "Prova de rua aberta a alunos, servidores e à comunidade, com percursos de 3, 5 e 10 km.",
+    categoria: "Corrida de rua", cidade: "Campina Grande", uf: "PB",
+    imagem_url: foto("#1d3557", "#0b6e99"), destaque: true, distancias: "3 km, 5 km, 10 km",
+    data: "2026-10-18", hora: "07:00:00", local: "Portão principal da escola",
+    vagas: 400, ocupadas: 268, na_fila: 0, espera_ativa: true, inscricoes_abertas: true,
+    tem_edital: true, resultados_publicados: false,
+    lotes: [lote("l1", "1º lote", 3500, 200, 200, null), lote("l2", "2º lote", 4500, 200, 68, "2026-10-10")],
+    perguntas: [
+      { id: "p1", rotulo: "Percurso", tipo: "opcoes", opcoes: "3 km, 5 km, 10 km", obrigatorio: true },
+      { id: "p2", rotulo: "Tamanho da camiseta", tipo: "opcoes", opcoes: "PP, P, M, G, GG", obrigatorio: true },
+      { id: "p3", rotulo: "Contato de emergência", tipo: "texto", opcoes: "Nome e telefone", obrigatorio: true },
+      { id: "p4", rotulo: "CPF", tipo: "cpf", opcoes: "", obrigatorio: false }
+    ],
+    edital: `## Percurso
+- 3 km — largada às 07h00, aberto a partir de 10 anos
+- 5 km — largada às 07h20
+- 10 km — largada às 07h40, a partir de 16 anos
+
+## Categorias
+As categorias seguem a idade completada em **31 de dezembro de 2026**, separadas por sexo.
+
+## Retirada do kit
+Na secretaria da escola, dias 16 e 17 de outubro, das 8h às 17h, mediante documento com foto.
+
+## Premiação
+Troféu para os três primeiros de cada percurso e medalha de participação para todos que cruzarem a linha de chegada.`
+  },
+  {
+    id: "e2", slug: "caminhada-da-familia", nome: "Caminhada da Família",
+    descricao: "Percurso leve de 3 km pela vizinhança, sem cronometragem.",
+    categoria: "Caminhada", cidade: "Campina Grande", uf: "PB",
+    imagem_url: foto("#12805c", "#2a9d8f"), destaque: false, distancias: "3 km",
+    data: "2026-11-08", hora: "08:00:00", local: "Praça central",
+    vagas: 150, ocupadas: 150, na_fila: 12, espera_ativa: true, inscricoes_abertas: true,
+    tem_edital: false, lotes: [lote("l3", "Único", 2000, 150, 150, null)], perguntas: []
+  },
+  {
+    id: "e3", slug: "trilha-do-mirante", nome: "Trilha do Mirante",
+    descricao: "Trail run de 12 km com subida técnica no trecho final.",
+    categoria: "Trail run", cidade: "Areia", uf: "PB",
+    imagem_url: "", destaque: false, distancias: "12 km",
+    data: "2026-12-06", hora: "06:30:00", local: "Base do mirante",
+    vagas: 0, ocupadas: 41, na_fila: 0, espera_ativa: false, inscricoes_abertas: false,
+    tem_edital: false, lotes: [lote("l4", "Único", 6000, 0, 41, null)], perguntas: []
+  }
+];
+
+const RESULTADOS = [
+  { posicao: 1, atleta: "Maria Souza Andrade", equipe: "Equipe Alfa", categoria: "F30-34", percurso: "10 km", tempo: "00:41:52" },
+  { posicao: 2, atleta: "João Pedro Lima", equipe: "Pelotão Norte", categoria: "M35-39", percurso: "10 km", tempo: "00:42:18" },
+  { posicao: 3, atleta: "Ana Clara Dias", equipe: "", categoria: "F25-29", percurso: "10 km", tempo: "00:43:40" },
+  { posicao: 4, atleta: "Bruno Reis Alves", equipe: "Equipe Alfa", categoria: "M40-44", percurso: "10 km", tempo: "00:44:02" },
+  { posicao: 5, atleta: "Carla Nunes Melo", equipe: "Assessoria Sul", categoria: "F40-44", percurso: "10 km", tempo: "00:45:31" }
+].map((r, i) => ({ id: "r" + i, evento_id: "e9", ...r }));
+
+const INSCRICOES = [
+  { id: "i1", codigo: "K7M-QP2", participante_nome: "Maria Souza Andrade", participante_email: "maria@exemplo.com",
+    participante_telefone: "(83) 98888-1122", participante_nascimento: "1994-03-11", eh_titular: true,
+    lote_nome: "1º lote", valor_centavos: 3500, status: "pago", observacao: "",
+    respostas: { p1: "10 km", p2: "M" }, criado_em: "2026-08-02T12:00:00Z",
+    eventos: { nome: "3ª Corrida da Escola 2026", slug: "corrida-da-escola-2026", data: "2026-10-18", hora: "07:00:00", local: "Portão principal da escola" } },
+  { id: "i2", codigo: "R4X-TB9", participante_nome: "Pedro Souza Andrade", participante_email: "maria@exemplo.com",
+    participante_telefone: "(83) 98888-1122", participante_nascimento: "2014-07-30", eh_titular: false,
+    lote_nome: "2º lote", valor_centavos: 4500, status: "pendente", observacao: "Corre com a mãe",
+    respostas: { p1: "3 km", p2: "PP" }, criado_em: "2026-08-02T12:04:00Z",
+    eventos: { nome: "3ª Corrida da Escola 2026", slug: "corrida-da-escola-2026", data: "2026-10-18", hora: "07:00:00", local: "Portão principal da escola" } },
+  { id: "i3", codigo: "W2N-HL5", participante_nome: "Bruno Reis Alves", participante_email: "bruno@exemplo.com",
+    participante_telefone: "", participante_nascimento: "1988-01-19", eh_titular: true,
+    lote_nome: "Único", valor_centavos: 2000, status: "espera", observacao: "",
+    respostas: {}, criado_em: "2026-08-05T09:00:00Z",
+    eventos: { nome: "Caminhada da Família", slug: "caminhada-da-familia", data: "2026-11-08", hora: "08:00:00", local: "Praça central" } }
+];
+
+let sessao = null;
+let ouvinte = null;
+
+const sessaoAtual = async () => sessao;
+function aoMudarSessao(cb) { ouvinte = cb; }
+async function entrarPorEmail(email) {
+  sessao = { user: { id: "u1", email } };
+  setTimeout(() => ouvinte && ouvinte(sessao), 300);
+}
+async function sair() { sessao = null; }
+const souOrganizador = async () => !!sessao;
+const meuPerfil = async () => sessao ? { id: "u1", nome: "Maria Souza Andrade", telefone: "(83) 98888-1122" } : null;
+const salvarPerfil = async c => c;
+
+const nomeOrganizacao = async () => "";
+let chamadasEventos = 0;
+const eventosPublicos = async () => { chamadasEventos++; globalThis.__chamadas = chamadasEventos; return EVENTOS; };
+const eventoPublico = async slug => EVENTOS.find(e => e.slug === slug) || (
+  slug === "corrida-da-escola-2025"
+    ? { id: "e9", slug, nome: "2ª Corrida da Escola 2025", data: "2025-10-19",
+        cidade: "Campina Grande", uf: "PB", categoria: "Corrida de rua", lotes: [], perguntas: [] }
+    : null);
+
+async function inscrever(d) {
+  return { id: "novo", codigo: "ABC-123", status: d.eventoId === "e2" ? "espera" : "pendente" };
+}
+const minhasInscricoes = async () => INSCRICOES;
+const cobranca = async () => ({
+  chave: "recebedor@exemplo.com", beneficiario: "RECEBEDOR EXEMPLO",
+  cidade: "CAMPINA GRANDE", centavos: 4500, txid: "R4XTB9"
+});
+const posicaoNaFila = async () => 4;
+const cancelarInscricao = async () => ({ ok: true });
+
+const configuracao = async () => ({
+  organizacao: "", chave_pix: "recebedor@exemplo.com",
+  beneficiario: "RECEBEDOR EXEMPLO", cidade: "CAMPINA GRANDE",
+  sigla: "AP", nome_site: "Alta Pista", subtitulo: "Cronometragem e inscrições",
+  cor_acento: "#FFE01B", contato: "contato@altapista.com.br",
+  whatsapp: "83999990000", instagram: "altapista", logo_url: "",
+  sobre: "Inscrições, edital e resultados das corridas da escola e da comunidade."
+});
+const salvarConfiguracao = async c => c;
+const eventosDoPainel = async () => EVENTOS.map(e => ({
+  ...e, publicado: e.slug !== "trilha-do-mirante", resultados_publicados: false,
+  lotes: e.lotes.map((l, i) => ({ ...l, ordem: i + 1, evento_id: e.id })),
+  perguntas: (e.perguntas || []).map((p, i) => ({ ...p, ordem: i + 1, evento_id: e.id }))
+}));
+const salvarEvento = async e => ({ id: e.id || "novo", slug: e.slug || "novo" });
+const apagarEvento = async () => null;
+const inscritosDoPainel = async () => INSCRICOES.map(i => ({ ...i, eventos: { nome: i.eventos.nome } }));
+const definirStatus = async () => ({});
+
+const eventosComResultado = async () => ([{
+  slug: "corrida-da-escola-2025", nome: "2ª Corrida da Escola 2025", data: "2025-10-19",
+  cidade: "Campina Grande", uf: "PB", categoria: "Corrida de rua",
+  imagem_url: foto("#9a6b00", "#e0d000"), total: RESULTADOS.length
+}]);
+const resultadosDoEvento = async () => RESULTADOS;
+const substituirResultados = async (_, l) => l;
+const enviarCapa = async () => foto("#b03a44", "#e76f51");
+
+const identidade = async () => ({ organizacao:"", sigla:'AP', nome_site:'Alta Pista', subtitulo:'Cronometragem e inscrições', cor_acento:'#FFE01B', sobre:'Inscrições, edital e resultados das corridas da escola e da comunidade.', contato:'contato@altapista.com.br', instagram:'altapista', whatsapp:'83999990000', logo_url:'' });
+
+const api = { configPendente, sessaoAtual, aoMudarSessao, entrarPorEmail, sair, souOrganizador, meuPerfil, salvarPerfil, nomeOrganizacao, chamadasEventos, eventosPublicos, eventoPublico, inscrever, minhasInscricoes, cobranca, posicaoNaFila, cancelarInscricao, configuracao, salvarConfiguracao, eventosDoPainel, salvarEvento, apagarEvento, inscritosDoPainel, definirStatus, eventosComResultado, resultadosDoEvento, substituirResultados, enviarCapa, identidade };
+
+// Balcão de Inscrições — aplicação do site.
+//
+// Nenhuma regra de dinheiro ou de vaga é decidida aqui. O preço, o lote e o
+// status saem da função inscrever() no banco; esta tela só mostra e pergunta.
+
+
+
+
+/* =========================================================== utilidades == */
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const dinheiro = c => (c / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const MESES = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+const MODALIDADES = ["Corrida de rua", "Corrida rústica", "Trail run", "Caminhada",
+  "Ciclismo", "Triatlo", "Circuito", "Outro"];
+
+const hora = h => (h || "").slice(0, 5);
+function dataLonga(iso) {
+  if (!iso) return "Data a definir";
+  const [a, m, d] = iso.split("-").map(Number);
+  return new Date(a, m - 1, d).toLocaleDateString("pt-BR",
+    { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+}
+function dataCurta(iso) {
+  if (!iso) return { dia: "--", mes: "" };
+  const [, m, d] = iso.split("-").map(Number);
+  return { dia: String(d).padStart(2, "0"), mes: MESES[m - 1] || "" };
+}
+const dataBR = iso => iso ? iso.split("-").reverse().join("/") : "—";
+const hojeISO = () => new Date().toISOString().slice(0, 10);
+const cidadeUF = ev => [ev.cidade, ev.uf].filter(Boolean).join(" - ");
+
+function torrar(msg) {
+  const t = $("#torrada");
+  t.textContent = msg;
+  t.classList.add("ver");
+  clearTimeout(torrar._t);
+  torrar._t = setTimeout(() => t.classList.remove("ver"), 3400);
+}
+
+function validaCPF(bruto) {
+  const s = (bruto || "").replace(/\D/g, "");
+  if (s.length !== 11 || /^(\d)\1{10}$/.test(s)) return false;
+  for (const corte of [9, 10]) {
+    let soma = 0;
+    for (let i = 0; i < corte; i++) soma += parseInt(s[i], 10) * (corte + 1 - i);
+    let d = (soma * 10) % 11;
+    if (d === 10) d = 0;
+    if (d !== parseInt(s[corte], 10)) return false;
+  }
+  return true;
+}
+const formataCPF = b => (b || "").replace(/\D/g, "").slice(0, 11)
+  .replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2")
+  .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+
+const rotuloStatus = s => ({
+  pago: "Pago", pendente: "Aguardando pagamento",
+  cancelada: "Cancelada", espera: "Na lista de espera"
+}[s] || s);
+const classeStatus = s => s === "cancelada" ? "cancelado" : s;
+
+/* Edital em texto simples: ## título, - item, **negrito**, parágrafos. */
+function renderEdital(texto) {
+  const linhas = String(texto || "").split(/\r?\n/);
+  let html = "", lista = false;
+  const forte = t => esc(t).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  for (const linha of linhas) {
+    const l = linha.trim();
+    if (!l) { if (lista) { html += "</ul>"; lista = false; } continue; }
+    if (l.startsWith("## ")) {
+      if (lista) { html += "</ul>"; lista = false; }
+      html += "<h3>" + forte(l.slice(3)) + "</h3>";
+    } else if (l.startsWith("- ")) {
+      if (!lista) { html += "<ul>"; lista = true; }
+      html += "<li>" + forte(l.slice(2)) + "</li>";
+    } else {
+      if (lista) { html += "</ul>"; lista = false; }
+      html += "<p>" + forte(l) + "</p>";
+    }
+  }
+  if (lista) html += "</ul>";
+  return html;
+}
+
+/* ------------------------------------------------------------- lotes ---- */
+
+const loteVencido = l => !!l.vende_ate && l.vende_ate < hojeISO();
+const loteEsgotado = l => l.quantidade > 0 && (l.vendidos || 0) >= l.quantidade;
+const loteAtivo = ev => (ev.lotes || []).find(l => !loteVencido(l) && !loteEsgotado(l)) || null;
+function precoAtual(ev) {
+  const l = loteAtivo(ev);
+  if (l) return l.preco_centavos;
+  const ultimo = (ev.lotes || []).slice(-1)[0];
+  return ultimo ? ultimo.preco_centavos : 0;
+}
+function motivoLote(ev, l) {
+  if (loteVencido(l)) return "encerrado em " + dataBR(l.vende_ate);
+  if (loteEsgotado(l)) return "esgotado";
+  const a = loteAtivo(ev);
+  return a && a.id === l.id ? "à venda agora" : "em seguida";
+}
+function vagasRestantes(ev) {
+  if (!ev.vagas) return null;
+  return Math.max(0, ev.vagas - (ev.ocupadas || 0));
+}
+const semVaga = ev => vagasRestantes(ev) === 0 || !loteAtivo(ev);
+
+/* ============================================================== estado === */
+
+/* =========================================================== identidade == */
+
+const IDENTIDADE_PADRAO = {
+  organizacao: "", sigla: "B", nome_site: "Balcão",
+  subtitulo: "Inscrições esportivas", cor_acento: "#FFE01B",
+  sobre: "", contato: "", instagram: "", whatsapp: "", logo_url: ""
+};
+
+/** Preto ou branco por cima da cor escolhida, conforme a luminância dela. */
+function tintaSobre(hex) {
+  let h = String(hex || "").replace("#", "");
+  if (h.length === 3) h = h.split("").map(c => c + c).join("");
+  if (h.length !== 6) return "#171B1F";
+  const canal = i => {
+    const v = parseInt(h.slice(i, i + 2), 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  const luz = 0.2126 * canal(0) + 0.7152 * canal(2) + 0.0722 * canal(4);
+  // contraste contra branco vs contra quase-preto
+  return (1.05 / (luz + 0.05)) > ((luz + 0.05) / 0.06) ? "#FFFFFF" : "#171B1F";
+}
+
+/** Versão mais escura da cor, para o estado de hover dos botões. */
+function escurecer(hex, quanto) {
+  let h = String(hex || "").replace("#", "");
+  if (h.length === 3) h = h.split("").map(c => c + c).join("");
+  if (h.length !== 6) return hex;
+  const canal = i => Math.max(0, Math.round(parseInt(h.slice(i, i + 2), 16) * (1 - quanto)));
+  return "#" + [0, 2, 4].map(i => canal(i).toString(16).padStart(2, "0")).join("");
+}
+
+function aplicarIdentidade(id) {
+  const i = Object.assign({}, IDENTIDADE_PADRAO, id || {});
+  estado.identidade = i;
+  estado.organizacao = i.organizacao || "";
+
+  const raiz = document.documentElement.style;
+  raiz.setProperty("--amarelo", i.cor_acento);
+  raiz.setProperty("--sobre-amarelo", tintaSobre(i.cor_acento));
+  raiz.setProperty("--amarelo-escuro", escurecer(i.cor_acento, 0.12));
+
+  const selo = $(".marca .selo");
+  selo.innerHTML = i.logo_url
+    ? '<img src="' + esc(i.logo_url) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'
+    : esc((i.sigla || "B").slice(0, 3).toUpperCase());
+  selo.classList.toggle("com-logo", !!i.logo_url);
+  $(".marca b").textContent = i.nome_site || "Balcão";
+  $("#marca-org").textContent = i.organizacao || i.subtitulo || "Inscrições esportivas";
+  document.title = (i.nome_site || "Balcão") + (i.organizacao ? " · " + i.organizacao : "");
+
+  if (i.sobre) $("#rodape-sobre").textContent = i.sobre;
+  const contato = [];
+  if (i.contato) contato.push("<li><span>" + esc(i.contato) + "</span></li>");
+  if (i.whatsapp) contato.push('<li><a href="https://wa.me/' +
+    esc(i.whatsapp.replace(/\D/g, "")) + '" target="_blank" rel="noopener">WhatsApp ' + esc(i.whatsapp) + "</a></li>");
+  if (i.instagram) contato.push('<li><a href="https://instagram.com/' +
+    esc(i.instagram.replace(/^@/, "")) + '" target="_blank" rel="noopener">@' +
+    esc(i.instagram.replace(/^@/, "")) + "</a></li>");
+  if (contato.length) $("#rodape-contato").innerHTML = contato.join("");
+}
+
+/* ============================================================== estado === */
+
+const estado = {
+  sessao: null,
+  organizador: false,
+  organizacao: "",
+  identidade: Object.assign({}, IDENTIDADE_PADRAO),
+  eventos: [],
+  evento: null,
+  minhas: [],
+  filtro: { texto: "", categoria: "", cidade: "" },
+  resultados: { lista: [], evento: null, linhas: [] },
+  painel: { config: null, eventos: [], inscritos: [] },
+  destino: null
+};
+let vista = "eventos";
+
+/* =============================================================== rotas === */
+
+function ir(nome, ctx) {
+  vista = nome;
+  if (nome !== "eventos") clearInterval(carrosselRelogio); // não roda escondido
+  document.querySelectorAll(".secao").forEach(s => s.classList.remove("ativa"));
+  $("#v-" + nome).classList.add("ativa");
+  document.querySelectorAll("#menu button").forEach(b => {
+    const marca = b.dataset.ir === nome ||
+      (b.dataset.ir === "eventos" && ["evento", "inscricao"].includes(nome));
+    if (marca) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+  });
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  return desenhar(ctx);
+}
+
+async function desenhar(ctx) {
+  $("#rodape-assinatura").textContent =
+    (estado.organizacao || estado.identidade.nome_site || "Balcão") + " · " + new Date().getFullYear();
+  $("#menu button[data-ir='painel']").hidden = !estado.organizador;
+  desenharIdentidade();
+  if (vista === "eventos") return telaEventos();
+  if (vista === "evento") return telaEvento(ctx);
+  if (vista === "inscricao") return telaInscricao();
+  if (vista === "minhas") return telaMinhas();
+  if (vista === "resultados") return telaResultados(ctx);
+  if (vista === "entrar") return telaEntrar();
+  if (vista === "painel") return telaPainel();
+}
+
+function desenharIdentidade() {
+  $("#identidade").innerHTML = estado.sessao
+    ? '<span class="quem">' + esc(estado.sessao.user.email) + '</span>' +
+      '<button class="btn clara pequeno" data-sair="1">Sair</button>'
+    : '<button class="btn pequeno" data-ir="entrar">Entrar</button>';
+}
+const carregando = alvo => { $(alvo).innerHTML = '<p class="carregando">Carregando…</p>'; };
+
+/* ======================================================= tela: eventos == */
+
+/**
+ * Busca a lista no banco e desenha. Mexer no filtro chama só `desenharEventos`:
+ * filtrar é trabalho de tela, não motivo para bater no banco a cada tecla.
+ */
+async function telaEventos() {
+  carregando("#v-eventos");
+  try { estado.eventos = await api.eventosPublicos(); }
+  catch (e) { return erroNa("#v-eventos", e); }
+  desenharEventos();
+}
+
+function desenharEventos() {
+  const todos = estado.eventos;
+  const f = estado.filtro;
+  const visiveis = todos.filter(ev => {
+    if (f.categoria && ev.categoria !== f.categoria) return false;
+    if (f.cidade && cidadeUF(ev) !== f.cidade) return false;
+    if (f.texto) {
+      const alvo = (ev.nome + " " + ev.cidade + " " + ev.local + " " + ev.descricao).toLowerCase();
+      if (!alvo.includes(f.texto.toLowerCase())) return false;
+    }
+    return true;
+  });
+
+  // Faixa de abertura: se a organização marcou dois ou mais como destaque, são
+  // exatamente esses. Se marcou um só (ou nenhum), completa com os próximos
+  // eventos abertos até três, para a faixa não ficar parada.
+  const abertos = todos.filter(e => e.inscricoes_abertas);
+  const marcados = abertos.filter(e => e.destaque);
+  const carrossel = marcados.length >= 2
+    ? marcados.slice(0, 5)
+    : [...marcados, ...abertos.filter(e => !e.destaque)].slice(0, 3);
+  if (!carrossel.length && todos.length) carrossel.push(todos[0]);
+
+  let html = carrossel.length ? heroHTML(carrossel) : "";
+
+  html += '<div class="faixa"><div class="limite">' +
+    '<div class="cabeca-secao"><h2>Eventos</h2>' +
+      '<div class="ao-lado"><span class="contagem">' + visiveis.length + " de " + todos.length +
+      (todos.length === 1 ? " evento" : " eventos") + '</span></div></div>' +
+    filtroHTML(todos) +
+    (visiveis.length
+      ? '<div class="grade">' + visiveis.map(cartao).join("") + '</div>'
+      : '<div class="vazio"><h3>' + (todos.length ? "Nada com esse filtro" : "Nenhum evento aberto") + '</h3>' +
+        '<p>' + (todos.length
+          ? "Tente outra busca ou limpe o filtro."
+          : "Assim que a organização publicar uma corrida, ela aparece aqui.") + '</p></div>') +
+    '</div></div>';
+
+  if (!estado.sessao) {
+    html += '<div class="faixa compacta"><div class="limite"><div class="chamada">' +
+      '<h2>Sua próxima corrida começa aqui</h2>' +
+      '<p>Crie sua conta com o e-mail, escolha o percurso e inscreva-se. ' +
+      'Você acompanha o pagamento e a confirmação em um só lugar — e ninguém além da ' +
+      'organização enxerga seus dados.</p>' +
+      '<div class="acoes"><button class="btn" data-ir="entrar">Entrar ou criar conta</button></div>' +
+      '</div></div></div>';
+  }
+
+  $("#v-eventos").innerHTML = html;
+  ligarFiltro();
+  ligarCarrossel();
+}
+
+function heroSlide(ev, ativo) {
+  const lotado = semVaga(ev);
+  const preco = precoAtual(ev);
+  return '<div class="hero-slide' + (ativo ? " ativo" : "") + '" data-slide>' +
+    (ev.imagem_url ? '<div class="hero-foto" style="background-image:url(' + esc(ev.imagem_url) + ')"></div>' : "") +
+    '<div class="hero-in">' +
+      '<span class="destaque-selo">' + esc(ev.categoria || "Próximo evento") + '</span>' +
+      '<h1>' + esc(ev.nome) + '</h1>' +
+      '<div class="hero-meta">' +
+        '<span><i>◷</i>' + esc(dataLonga(ev.data)) + (ev.hora ? " · " + hora(ev.hora) : "") + '</span>' +
+        (cidadeUF(ev) ? '<span><i>⌖</i>' + esc(cidadeUF(ev)) + '</span>' : "") +
+        (ev.distancias ? '<span><i>↔</i>' + esc(ev.distancias) + '</span>' : "") +
+        '<span><i>◈</i>' + (preco > 0 ? dinheiro(preco) : "Gratuito") + '</span>' +
+      '</div>' +
+      '<div class="acoes">' +
+        '<button class="btn clara" data-abrir="' + esc(ev.slug) + '">Detalhes</button>' +
+        (ev.inscricoes_abertas
+          ? '<button class="btn" data-abrir="' + esc(ev.slug) + '">' +
+            (lotado ? "Lista de espera" : "Inscreva-se") + '</button>'
+          : '<span class="tag cancelado">Inscrições encerradas</span>') +
+      '</div>' +
+    '</div></div>';
+}
+
+/** Faixa de abertura. Com mais de um evento vira carrossel. */
+function heroHTML(lista) {
+  const evs = Array.isArray(lista) ? lista : [lista];
+  if (!evs.length) return "";
+  const varios = evs.length > 1;
+  return '<section class="hero"' + (varios ? ' id="carrossel"' : "") + '>' +
+    evs.map((ev, i) => heroSlide(ev, i === 0)).join("") +
+    (varios
+      ? '<span class="hero-contador" id="hero-contador">1 / ' + evs.length + '</span>' +
+        '<button class="hero-seta anterior" data-slide-passo="-1" aria-label="Evento anterior">‹</button>' +
+        '<button class="hero-seta proximo" data-slide-passo="1" aria-label="Próximo evento">›</button>' +
+        '<div class="hero-pontos">' + evs.map((ev, i) =>
+          '<button data-slide-ir="' + i + '" aria-current="' + (i === 0) + '" ' +
+          'aria-label="Ver ' + esc(ev.nome) + '"></button>').join("") + '</div>'
+      : "") +
+  '</section>';
+}
+
+let carrosselRelogio = null;
+function ligarCarrossel() {
+  clearInterval(carrosselRelogio);
+  const caixa = $("#carrossel");
+  if (!caixa) return;
+  const slides = [...caixa.querySelectorAll("[data-slide]")];
+  const pontos = [...caixa.querySelectorAll("[data-slide-ir]")];
+  if (slides.length < 2) return;
+  let atual = 0;
+
+  const mostrar = i => {
+    atual = (i + slides.length) % slides.length;
+    slides.forEach((s, k) => s.classList.toggle("ativo", k === atual));
+    pontos.forEach((p, k) => p.setAttribute("aria-current", String(k === atual)));
+    const c = $("#hero-contador");
+    if (c) c.textContent = (atual + 1) + " / " + slides.length;
+  };
+
+  caixa.addEventListener("click", e => {
+    const b = e.target.closest("[data-slide-passo],[data-slide-ir]");
+    if (!b) return;
+    mostrar(b.dataset.slideIr != null ? +b.dataset.slideIr : atual + (+b.dataset.slidePasso));
+    reiniciar();
+  });
+
+  const paradinho = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const reiniciar = () => {
+    clearInterval(carrosselRelogio);
+    if (!paradinho) carrosselRelogio = setInterval(() => mostrar(atual + 1), 6500);
+  };
+  caixa.addEventListener("mouseenter", () => clearInterval(carrosselRelogio));
+  caixa.addEventListener("mouseleave", reiniciar);
+  reiniciar();
+}
+
+function filtroHTML(todos) {
+  const cats = [...new Set(todos.map(e => e.categoria).filter(Boolean))].sort();
+  const cidades = [...new Set(todos.map(cidadeUF).filter(Boolean))].sort();
+  const f = estado.filtro;
+  const opcoes = (lista, sel) => lista.map(v =>
+    '<option value="' + esc(v) + '"' + (sel === v ? " selected" : "") + '>' + esc(v) + '</option>').join("");
+  return '<div class="filtro">' +
+    '<label>Buscar<input id="f-texto" value="' + esc(f.texto) + '" placeholder="Nome do evento, cidade…"></label>' +
+    (cats.length > 1 ? '<label>Modalidade<select id="f-categoria">' +
+      '<option value="">Todas</option>' + opcoes(cats, f.categoria) + '</select></label>' : "") +
+    (cidades.length > 1 ? '<label>Cidade<select id="f-cidade">' +
+      '<option value="">Todas</option>' + opcoes(cidades, f.cidade) + '</select></label>' : "") +
+    (f.texto || f.categoria || f.cidade
+      ? '<button class="btn fantasma pequeno" data-limpar-filtro="1">Limpar</button>' : "") +
+  '</div>';
+}
+
+function ligarFiltro() {
+  const t = $("#f-texto");
+  if (t) {
+    let atraso;
+    t.addEventListener("input", () => {
+      clearTimeout(atraso);
+      atraso = setTimeout(() => { estado.filtro.texto = t.value; desenharEventos(); }, 280);
+    });
+  }
+  const c = $("#f-categoria");
+  if (c) c.addEventListener("change", () => { estado.filtro.categoria = c.value; desenharEventos(); });
+  const u = $("#f-cidade");
+  if (u) u.addEventListener("change", () => { estado.filtro.cidade = u.value; desenharEventos(); });
+}
+
+function cartao(ev) {
+  const { dia, mes } = dataCurta(ev.data);
+  const rest = vagasRestantes(ev);
+  const lote = loteAtivo(ev);
+  const preco = precoAtual(ev);
+  const fechado = !ev.inscricoes_abertas;
+  const lotado = semVaga(ev);
+  const iniciais = (ev.nome || "?").split(/\s+/).slice(0, 2).map(p => p[0] || "").join("").toUpperCase();
+
+  let acao;
+  if (fechado) acao = '<span class="tag cancelado">Encerradas</span>';
+  else if (!lotado) acao = '<button class="btn largo" data-abrir="' + esc(ev.slug) + '">Inscreva-se</button>';
+  else if (ev.espera_ativa)
+    acao = '<button class="btn fantasma largo" data-abrir="' + esc(ev.slug) + '">Lista de espera' +
+      (ev.na_fila ? " (" + ev.na_fila + ")" : "") + '</button>';
+  else acao = '<span class="tag pendente">Lotado</span>';
+
+  return '<article class="cartao' + (lotado || fechado ? " encerrado" : "") + '">' +
+    '<div class="capa">' +
+      (ev.imagem_url
+        ? '<img src="' + esc(ev.imagem_url) + '" alt="" loading="lazy">'
+        : '<div class="sem-foto">' + esc(iniciais) + '</div>') +
+      '<div class="data-selo"><span class="mes">' + mes + '</span><span class="dia">' + dia + '</span></div>' +
+      (ev.categoria ? '<span class="modalidade">' + esc(ev.categoria) + '</span>' : "") +
+    '</div>' +
+    '<div class="cartao-corpo">' +
+      '<h3>' + esc(ev.nome) + '</h3>' +
+      '<div class="linhas">' +
+        '<span><i>◷</i>' + (ev.hora ? hora(ev.hora) : "Horário a definir") + '</span>' +
+        (cidadeUF(ev) ? '<span><i>⌖</i>' + esc(cidadeUF(ev)) + '</span>' : "") +
+        (ev.distancias ? '<span><i>↔</i>' + esc(ev.distancias) + '</span>' : "") +
+      '</div>' +
+      '<div class="preco-linha">' +
+        '<span class="preco">' + (preco > 0 ? dinheiro(preco) : "Gratuito") + '</span>' +
+        (lote && (ev.lotes || []).length > 1 ? '<small>' + esc(lote.nome) + '</small>' : "") +
+        (rest != null ? '<span class="vagas" style="margin-left:auto">' +
+          (rest === 0 ? "Sem vagas" : rest + " vagas") + '</span>' : "") +
+      '</div>' + acao +
+    '</div></article>';
+}
+
+/* ================================================ tela: evento + edital == */
+
+async function telaEvento(slug) {
+  if (slug) {
+    carregando("#v-evento");
+    try { estado.evento = await api.eventoPublico(slug); }
+    catch (e) { return erroNa("#v-evento", e); }
+  }
+  const ev = estado.evento;
+  if (!ev) return ir("eventos");
+
+  const rest = vagasRestantes(ev);
+  const lote = loteAtivo(ev);
+  const lotado = semVaga(ev);
+  const fechado = !ev.inscricoes_abertas;
+
+  const tabelaLotes = (ev.lotes || []).length > 1
+    ? '<div class="sub"><h4>Lotes</h4><div style="margin-top:6px">' +
+      ev.lotes.map(l => {
+        const m = motivoLote(ev, l);
+        const cor = m === "à venda agora" ? "pago"
+          : (m === "esgotado" || m.startsWith("encerrado")) ? "cancelado" : "espera";
+        return '<div class="linha-dados"><dt style="text-transform:none;letter-spacing:0">' + esc(l.nome) +
+          ' <span class="tag ' + cor + '" style="margin-left:6px">' + esc(m) + '</span></dt>' +
+          '<dd class="mono">' + dinheiro(l.preco_centavos) + '</dd></div>';
+      }).join("") + '</div></div>'
+    : "";
+
+  clearInterval(carrosselRelogio); // a página do evento tem faixa única, sem rodízio
+  $("#v-evento").innerHTML =
+    heroHTML([ev]) +
+    '<div class="faixa"><div class="limite">' +
+    '<button class="btn fantasma pequeno" data-ir="eventos" style="margin-bottom:18px">← Todos os eventos</button>' +
+    '<div class="painel">' +
+      '<span class="eyebrow">' + (lotado && !fechado ? "Lista de espera" : "Inscrições") + '</span>' +
+      '<h2 style="margin-top:4px">' + esc(ev.nome) + '</h2>' +
+      (ev.descricao ? '<p style="margin-top:10px;color:var(--tinta-media)">' + esc(ev.descricao) + '</p>' : "") +
+      '<dl style="margin-top:18px">' +
+        '<div class="linha-dados"><dt>Quando</dt><dd>' + esc(dataLonga(ev.data)) +
+          (ev.hora ? " · " + hora(ev.hora) : "") + '</dd></div>' +
+        '<div class="linha-dados"><dt>Onde</dt><dd>' + esc(ev.local || "A definir") +
+          (cidadeUF(ev) ? " — " + esc(cidadeUF(ev)) : "") + '</dd></div>' +
+        (ev.distancias ? '<div class="linha-dados"><dt>Percursos</dt><dd>' + esc(ev.distancias) + '</dd></div>' : "") +
+        '<div class="linha-dados"><dt>Valor' + (lote && ev.lotes.length > 1 ? " · " + esc(lote.nome) : "") +
+          '</dt><dd class="mono">' + (precoAtual(ev) > 0 ? dinheiro(precoAtual(ev)) : "Gratuito") + '</dd></div>' +
+        (rest != null ? '<div class="linha-dados"><dt>Vagas restantes</dt><dd class="mono">' + rest + '</dd></div>' : "") +
+        (ev.na_fila ? '<div class="linha-dados"><dt>Na lista de espera</dt><dd class="mono">' + ev.na_fila + '</dd></div>' : "") +
+      '</dl>' + tabelaLotes +
+      (String(ev.edital || "").trim()
+        ? '<div class="edital"><h2 style="font-size:1.1rem;margin-bottom:14px">Edital do evento</h2>' +
+          renderEdital(ev.edital) + '</div>' +
+          '<div class="acoes"><button class="btn fantasma pequeno" data-imprimir="1">Imprimir ou salvar em PDF</button></div>'
+        : "") +
+      '<div class="acoes">' +
+        (fechado
+          ? '<span class="tag cancelado">Inscrições encerradas</span>'
+          : '<button class="btn" data-inscrever="1">' +
+            (lotado ? "Entrar na lista de espera" : "Fazer inscrição") + '</button>') +
+        (ev.resultados_publicados
+          ? '<button class="btn fantasma" data-resultado="' + esc(ev.slug) + '">Ver resultados</button>' : "") +
+      '</div>' +
+    '</div></div></div>';
+}
+
+/* ==================================================== tela: inscrição === */
+
+function campoExtraHTML(c) {
+  const req = c.obrigatorio ? " required" : "";
+  const dica = c.obrigatorio ? "" : ' <span class="dica">opcional</span>';
+  let controle;
+  if (c.tipo === "opcoes") {
+    const ops = String(c.opcoes || "").split(",").map(s => s.trim()).filter(Boolean);
+    controle = '<select name="x_' + esc(c.id) + '"' + req + '><option value="">Escolha…</option>' +
+      ops.map(o => '<option value="' + esc(o) + '">' + esc(o) + '</option>').join("") + '</select>';
+  } else if (c.tipo === "cpf") {
+    controle = '<input name="x_' + esc(c.id) + '" class="mono" inputmode="numeric" maxlength="14" ' +
+      'placeholder="000.000.000-00" data-cpf="1"' + req + '>';
+  } else if (c.tipo === "data") {
+    controle = '<input name="x_' + esc(c.id) + '" type="date"' + req + '>';
+  } else {
+    controle = '<input name="x_' + esc(c.id) + '"' + req +
+      (c.opcoes ? ' placeholder="' + esc(c.opcoes) + '"' : "") + '>';
+  }
+  return '<label>' + esc(c.rotulo) + dica + controle + '</label>';
+}
+
+/* O link mágico recarrega a página, então o destino não pode viver só na
+   memória: guardamos no sessionStorage para trazer a pessoa de volta ao
+   mesmo evento depois que ela entra. */
+function guardarDestino(vista, slug) {
+  estado.destino = { vista, slug };
+  try { sessionStorage.setItem("destino", JSON.stringify(estado.destino)); } catch (e) {}
+}
+function pegarDestino() {
+  if (estado.destino) return estado.destino;
+  try { return JSON.parse(sessionStorage.getItem("destino") || "null"); } catch (e) { return null; }
+}
+function limparDestino() {
+  estado.destino = null;
+  try { sessionStorage.removeItem("destino"); } catch (e) {}
+}
+
+async function telaInscricao() {
+  const ev = estado.evento;
+  if (!ev) return ir("eventos");
+  if (!estado.sessao) { guardarDestino("inscricao", ev.slug); return ir("entrar"); }
+
+  const perfil = await api.meuPerfil().catch(() => null);
+  const lotado = semVaga(ev);
+  const extras = ev.perguntas || [];
+
+  $("#v-inscricao").innerHTML =
+    '<div class="faixa"><div class="limite" style="max-width:860px">' +
+    '<button class="btn fantasma pequeno" data-voltar-evento="1" style="margin-bottom:18px">← Voltar ao evento</button>' +
+    '<div class="painel">' +
+      '<span class="eyebrow">' + (lotado ? "Lista de espera" : "Ficha de inscrição") + '</span>' +
+      '<h2 style="margin-top:4px">' + esc(ev.nome) + '</h2>' +
+      (lotado
+        ? '<div class="aviso info" style="margin-top:16px"><span>☷</span><span>As vagas acabaram. ' +
+          'Você entra na fila sem pagar nada agora; se abrir vaga, a organização libera sua inscrição ' +
+          'e o Pix aparece em <b>Minhas inscrições</b>.</span></div>'
+        : '<p style="color:var(--tinta-media);font-size:.95rem;margin-top:6px">Valor da inscrição: ' +
+          '<b class="mono">' + (precoAtual(ev) > 0 ? dinheiro(precoAtual(ev)) : "Gratuito") + '</b></p>') +
+
+      '<form id="form-inscricao">' +
+        '<div class="para-quem">' +
+          '<label><input type="radio" name="para" value="eu" checked> Sou eu que vou participar</label>' +
+          '<label><input type="radio" name="para" value="outro"> Estou inscrevendo outra pessoa</label>' +
+        '</div>' +
+        '<div class="campos duas">' +
+          '<label>Nome completo do participante<input name="nome" required autocomplete="name" value="' +
+            esc(perfil && perfil.nome || "") + '"></label>' +
+          '<label>Data de nascimento<input name="nascimento" type="date" required></label>' +
+          '<label>E-mail para contato<input name="email" type="email" required value="' +
+            esc(estado.sessao.user.email) + '"></label>' +
+          '<label>Telefone<input name="telefone" autocomplete="tel" value="' +
+            esc(perfil && perfil.telefone || "") + '" placeholder="(00) 00000-0000"></label>' +
+          extras.map(campoExtraHTML).join("") +
+          '<label>Observação <span class="dica">opcional</span>' +
+            '<input name="observacao" placeholder="Algo que a organização precisa saber"></label>' +
+        '</div>' +
+        '<div class="acoes">' +
+          '<button class="btn" type="submit" id="botao-enviar">' +
+            (lotado ? "Entrar na lista de espera" : precoAtual(ev) > 0 ? "Gerar meu Pix" : "Confirmar inscrição") +
+          '</button>' +
+          '<span style="font-size:.83rem;color:var(--tinta-fraca)">' +
+            'Seus dados ficam com a organização e só você enxerga sua inscrição.</span>' +
+        '</div>' +
+        '<div id="erro-inscricao"></div>' +
+      '</form>' +
+    '</div></div></div>';
+
+  $("#form-inscricao").addEventListener("submit", async envio => {
+    envio.preventDefault();
+    const f = new FormData(envio.target);
+    const respostas = {};
+    for (const c of extras) {
+      const v = String(f.get("x_" + c.id) || "").trim();
+      if (c.tipo === "cpf" && v && !validaCPF(v)) {
+        $("#erro-inscricao").innerHTML = '<div class="erro">O CPF informado em “' +
+          esc(c.rotulo) + '” não confere. Confira os números.</div>';
+        return;
+      }
+      if (v) respostas[c.id] = c.tipo === "data" ? dataBR(v) : v;
+    }
+    const botao = $("#botao-enviar");
+    botao.disabled = true;
+    botao.textContent = "Enviando…";
+    try {
+      const ins = await api.inscrever({
+        eventoId: ev.id,
+        nome: String(f.get("nome") || "").trim(),
+        nascimento: f.get("nascimento") || null,
+        email: String(f.get("email") || "").trim(),
+        telefone: String(f.get("telefone") || "").trim(),
+        ehTitular: f.get("para") === "eu",
+        respostas,
+        observacao: String(f.get("observacao") || "").trim()
+      });
+      torrar(ins.status === "espera"
+        ? "Você entrou na lista de espera — código " + ins.codigo
+        : "Inscrição registrada — código " + ins.codigo);
+      await ir("minhas");
+    } catch (e) {
+      $("#erro-inscricao").innerHTML = '<div class="erro">' + esc(mensagemDe(e)) + '</div>';
+      botao.disabled = false;
+      botao.textContent = lotado ? "Entrar na lista de espera" : "Tentar de novo";
+    }
+  });
+}
+
+/* =============================================== tela: minhas inscrições = */
+
+async function telaMinhas() {
+  if (!estado.sessao) { guardarDestino("minhas"); return ir("entrar"); }
+  carregando("#v-minhas");
+  try { estado.minhas = await api.minhasInscricoes(); }
+  catch (e) { return erroNa("#v-minhas", e); }
+
+  let html = '<div class="faixa"><div class="limite" style="max-width:900px">' +
+    '<div class="cabeca-secao"><h2>Minhas inscrições</h2>' +
+    '<p>Tudo que você inscreveu com este e-mail, para você e para dependentes.</p></div>';
+
+  if (!estado.minhas.length) {
+    html += '<div class="vazio"><h3>Você ainda não tem inscrições</h3>' +
+      '<p>Escolha um evento na aba Eventos para começar.</p>' +
+      '<div class="acoes" style="justify-content:center"><button class="btn" data-ir="eventos">Ver eventos</button></div>' +
+      '</div></div></div>';
+    $("#v-minhas").innerHTML = html;
+    return;
+  }
+
+  for (const i of estado.minhas) {
+    const ev = i.eventos || {};
+    html += '<div class="painel" style="margin-bottom:18px">' +
+      '<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center">' +
+        '<div><span class="eyebrow">' + esc(ev.nome || "Evento") + '</span>' +
+        '<h3 style="text-transform:uppercase;margin-top:2px">' + esc(i.participante_nome) +
+        (i.eh_titular ? "" : ' <span class="tag espera" style="margin-left:6px">dependente</span>') + '</h3></div>' +
+        '<span class="tag ' + classeStatus(i.status) + '">' + rotuloStatus(i.status) + '</span>' +
+      '</div>' +
+      '<dl style="margin-top:14px">' +
+        '<div class="linha-dados"><dt>Código</dt><dd class="mono">' + esc(i.codigo) + '</dd></div>' +
+        '<div class="linha-dados"><dt>Valor' + (i.lote_nome ? " · " + esc(i.lote_nome) : "") +
+          '</dt><dd class="mono">' + (i.valor_centavos > 0 ? dinheiro(i.valor_centavos) : "Gratuito") + '</dd></div>' +
+        (ev.data ? '<div class="linha-dados"><dt>Quando</dt><dd>' + esc(dataLonga(ev.data)) +
+          (ev.hora ? " · " + hora(ev.hora) : "") + '</dd></div>' : "") +
+        (ev.local ? '<div class="linha-dados"><dt>Onde</dt><dd>' + esc(ev.local) + '</dd></div>' : "") +
+      '</dl>' +
+      '<div id="pix-' + i.id + '"></div>' +
+      '<div class="acoes">' +
+        (i.status === "pendente" ? '<button class="btn" data-pix="' + i.id + '">Ver o Pix</button>' : "") +
+        (i.status !== "pago" && i.status !== "cancelada"
+          ? '<button class="btn perigo pequeno" data-cancelar="' + i.id + '">Cancelar inscrição</button>' : "") +
+      '</div></div>';
+  }
+  $("#v-minhas").innerHTML = html + '</div></div>';
+
+  for (const i of estado.minhas.filter(x => x.status === "espera")) {
+    api.posicaoNaFila(i.id).then(pos => {
+      const alvo = $("#pix-" + i.id);
+      if (alvo && pos) {
+        alvo.innerHTML = '<div class="aviso info"><span>☷</span><span>Você está na ' +
+          '<b>' + pos + 'ª</b> posição da fila. A organização avisa quando abrir vaga.</span></div>';
+      }
+    }).catch(() => {});
+  }
+}
+
+async function mostrarPix(id) {
+  const alvo = $("#pix-" + id);
+  if (!alvo) return;
+  alvo.innerHTML = '<p class="carregando">Gerando a cobrança…</p>';
+  let dados;
+  try { dados = await api.cobranca(id); }
+  catch (e) { alvo.innerHTML = '<div class="erro">' + esc(mensagemDe(e)) + '</div>'; return; }
+  if (!dados) {
+    alvo.innerHTML = '<div class="aviso"><span>⚑</span><span>A organização ainda não cadastrou a chave Pix. ' +
+      'Sua inscrição está registrada; procure a organização para combinar o pagamento.</span></div>';
+    return;
+  }
+  const payload = Pix.brcode(dados);
+  let qr = "";
+  try { qr = QR.svg(payload, 3); } catch (e) { qr = ""; }
+  alvo.innerHTML =
+    '<div class="pagamento" style="margin-top:18px">' +
+      (qr ? '<div class="qr-caixa">' + qr + '</div>' : "") +
+      '<div style="display:flex;flex-direction:column;gap:12px;min-width:0">' +
+        '<div><span class="eyebrow">Pix copia e cola</span>' +
+        '<p style="font-size:.88rem;color:var(--tinta-media);margin-top:4px">' +
+        'Abra o app do banco, escolha Pix › Pagar com QR Code e aponte a câmera — ou copie o código.</p></div>' +
+        '<div class="copia mono">' + esc(payload) + '</div>' +
+        '<div><button class="btn" data-copiar="' + esc(payload) + '">Copiar código Pix</button></div>' +
+        '<p style="font-size:.82rem;color:var(--tinta-fraca)">Depois de pagar, a organização confere o ' +
+        'recebimento e sua inscrição passa a constar como paga.</p>' +
+      '</div>' +
+    '</div>';
+}
+
+/* =================================================== tela: resultados === */
+
+async function telaResultados(slug) {
+  carregando("#v-resultados");
+  if (slug) {
+    try {
+      const ev = await api.eventoPublico(slug);
+      if (!ev) throw new Error("Evento não encontrado.");
+      estado.resultados.evento = ev;
+      estado.resultados.linhas = await api.resultadosDoEvento(ev.id);
+    } catch (e) { return erroNa("#v-resultados", e); }
+    return desenharClassificacao();
+  }
+  estado.resultados.evento = null;
+  try { estado.resultados.lista = await api.eventosComResultado(); }
+  catch (e) { return erroNa("#v-resultados", e); }
+
+  const lista = estado.resultados.lista;
+  $("#v-resultados").innerHTML =
+    '<div class="faixa"><div class="limite">' +
+    '<div class="cabeca-secao"><h2>Resultados</h2>' +
+    '<p>Classificação das provas já realizadas.</p></div>' +
+    (lista.length
+      ? '<div class="grade">' + lista.map(ev => {
+          const { dia, mes } = dataCurta(ev.data);
+          const iniciais = (ev.nome || "?").split(/\s+/).slice(0, 2).map(p => p[0] || "").join("").toUpperCase();
+          return '<article class="cartao"><div class="capa">' +
+            (ev.imagem_url ? '<img src="' + esc(ev.imagem_url) + '" alt="" loading="lazy">'
+              : '<div class="sem-foto">' + esc(iniciais) + '</div>') +
+            '<div class="data-selo"><span class="mes">' + mes + '</span><span class="dia">' + dia + '</span></div>' +
+            '<span class="modalidade">Resultado</span></div>' +
+            '<div class="cartao-corpo"><h3>' + esc(ev.nome) + '</h3>' +
+            '<div class="linhas">' +
+              (cidadeUF(ev) ? '<span><i>⌖</i>' + esc(cidadeUF(ev)) + '</span>' : "") +
+              '<span><i>≡</i>' + ev.total + ' classificados</span>' +
+            '</div>' +
+            '<div style="margin-top:auto;padding-top:12px">' +
+            '<button class="btn largo" data-resultado="' + esc(ev.slug) + '">Ver classificação</button></div>' +
+            '</div></article>';
+        }).join("") + '</div>'
+      : '<div class="vazio"><h3>Nenhum resultado publicado</h3>' +
+        '<p>Assim que uma prova for apurada, a classificação aparece aqui.</p></div>') +
+    '</div></div>';
+}
+
+function desenharClassificacao() {
+  const ev = estado.resultados.evento;
+  const linhas = estado.resultados.linhas;
+  const temEquipe = linhas.some(l => l.equipe);
+  const temPercurso = linhas.some(l => l.percurso);
+  const temCategoria = linhas.some(l => l.categoria);
+
+  $("#v-resultados").innerHTML =
+    '<div class="faixa"><div class="limite">' +
+    '<button class="btn fantasma pequeno" data-ir="resultados" style="margin-bottom:18px">← Todos os resultados</button>' +
+    '<div class="cabeca-secao"><h2>' + esc(ev.nome) + '</h2>' +
+      '<div class="ao-lado"><span class="contagem">' + linhas.length + ' classificados</span></div>' +
+      '<p>' + esc(dataLonga(ev.data)) + (cidadeUF(ev) ? " · " + esc(cidadeUF(ev)) : "") + '</p></div>' +
+    (linhas.length
+      ? '<div class="painel"><div class="rolagem"><table><thead><tr>' +
+        '<th style="width:70px">Pos.</th><th>Atleta</th>' +
+        (temEquipe ? '<th>Equipe</th>' : "") +
+        (temCategoria ? '<th>Categoria</th>' : "") +
+        (temPercurso ? '<th>Percurso</th>' : "") +
+        '<th style="text-align:right">Tempo</th></tr></thead><tbody>' +
+        linhas.map(l => '<tr>' +
+          '<td><span class="pos' + (l.posicao && l.posicao <= 3 ? " podio" : "") + '">' +
+            (l.posicao != null ? l.posicao + "º" : "—") + '</span></td>' +
+          '<td class="nome">' + esc(l.atleta) + '</td>' +
+          (temEquipe ? '<td>' + esc(l.equipe || "—") + '</td>' : "") +
+          (temCategoria ? '<td>' + esc(l.categoria || "—") + '</td>' : "") +
+          (temPercurso ? '<td>' + esc(l.percurso || "—") + '</td>' : "") +
+          '<td class="mono" style="text-align:right">' + esc(l.tempo || "—") + '</td>' +
+        '</tr>').join("") + '</tbody></table></div>' +
+        '<div class="acoes"><button class="btn fantasma pequeno" data-imprimir="1">Imprimir ou salvar em PDF</button></div>' +
+        '</div>'
+      : '<div class="vazio"><h3>Classificação ainda vazia</h3><p>A apuração deste evento não foi importada.</p></div>') +
+    '</div></div>';
+}
+
+/* ==================================================== tela: entrar ====== */
+
+function telaEntrar() {
+  $("#v-entrar").innerHTML =
+    '<div class="faixa"><div class="entrar-caixa"><div class="painel">' +
+      '<span class="eyebrow">Sua conta</span><h2 style="margin-top:4px">Entrar</h2>' +
+      '<p style="color:var(--tinta-media);font-size:.93rem;margin-top:8px">' +
+        'Digite seu e-mail e enviamos um link de acesso. Não existe senha para criar nem para lembrar — ' +
+        'e é esse e-mail que garante que só você enxerga as suas inscrições.</p>' +
+      '<form id="form-entrar"><div class="campos">' +
+        '<label>Seu nome<input name="nome" placeholder="Como devemos te chamar"></label>' +
+        '<label>E-mail<input name="email" type="email" required placeholder="voce@exemplo.com" autocomplete="email"></label>' +
+      '</div><div class="acoes"><button class="btn" type="submit" id="botao-entrar">Enviar link de acesso</button></div>' +
+      '<div id="aviso-entrar"></div></form>' +
+    '</div></div></div>';
+
+  $("#form-entrar").addEventListener("submit", async e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const botao = $("#botao-entrar");
+    botao.disabled = true; botao.textContent = "Enviando…";
+    try {
+      await api.entrarPorEmail(String(f.get("email")).trim(), String(f.get("nome") || "").trim());
+      $("#aviso-entrar").innerHTML = '<div class="aviso info" style="margin-top:16px"><span>✉</span><span>' +
+        'Link enviado. Abra seu e-mail e clique no link para entrar — pode levar um minuto, ' +
+        'e vale conferir a caixa de spam.</span></div>';
+      botao.textContent = "Link enviado";
+    } catch (err) {
+      $("#aviso-entrar").innerHTML = '<div class="erro">' + esc(mensagemDe(err)) + '</div>';
+      botao.disabled = false; botao.textContent = "Tentar de novo";
+    }
+  });
+}
+
+/* ==================================================== tela: painel ====== */
+
+let edLotes = [], edPerguntas = [], edEventoId = null, edCapa = "";
+
+async function telaPainel() {
+  if (!estado.organizador) { torrar("Área restrita à organização"); return ir("eventos"); }
+  carregando("#v-painel");
+  try {
+    const [cfg, evs, ins] = await Promise.all([
+      api.configuracao(), api.eventosDoPainel(), api.inscritosDoPainel()
+    ]);
+    estado.painel = { config: cfg, eventos: evs, inscritos: ins };
+  } catch (e) { return erroNa("#v-painel", e); }
+
+  const { config, eventos, inscritos } = estado.painel;
+  const pagos = inscritos.filter(i => i.status === "pago");
+  const arrecadado = pagos.reduce((s, i) => s + i.valor_centavos, 0);
+
+  let html = '<div class="faixa"><div class="limite">' +
+    '<div class="cabeca-secao"><h2>Painel da organização</h2>' +
+    '<p>Configure o Pix, publique eventos com edital, importe resultados e confirme pagamentos.</p></div>' +
+    '<div class="numeros">' +
+      numero(inscritos.length, "Inscrições") +
+      numero(pagos.length, "Pagas") +
+      numero(inscritos.filter(i => i.status === "pendente").length, "Pendentes") +
+      numero(inscritos.filter(i => i.status === "espera").length, "Na fila") +
+      numero(dinheiro(arrecadado), "Confirmado") +
+    '</div>';
+
+  html += '<div class="painel"><span class="eyebrow">Marca</span><h3 style="margin-top:4px">Identidade do site</h3>' +
+    '<p style="color:var(--tinta-media);font-size:.9rem;margin-top:6px">' +
+      'O selo do topo, o nome, a cor e os textos do rodapé. Vale para todo mundo assim que salvar.</p>' +
+    '<form id="form-identidade"><div class="campos duas">' +
+      campo("sigla", "Iniciais do selo", config.sigla, "1 a 3 letras", "", 3) +
+      campo("nome_site", "Nome do site", config.nome_site, "aparece grande no topo") +
+      campo("subtitulo", "Linha de apoio", config.subtitulo, "usada quando não há nome da organização") +
+      '<label>Cor de acento <span class="dica">botões, selos e destaques</span>' +
+        '<span style="display:flex;gap:8px;align-items:center">' +
+        '<input type="color" name="cor_acento" value="' + esc(config.cor_acento || "#FFE01B") +
+          '" style="width:52px;height:40px;padding:3px" id="cor-acento">' +
+        '<input name="cor_acento_texto" class="mono" value="' + esc(config.cor_acento || "#FFE01B") +
+          '" maxlength="7" id="cor-acento-texto"></span></label>' +
+      campo("contato", "Contato no rodapé", config.contato, "e-mail ou telefone") +
+      campo("whatsapp", "WhatsApp", config.whatsapp, "com DDD, só números") +
+      campo("instagram", "Instagram", config.instagram, "sem o @") +
+    '</div>' +
+    '<div class="campos"><label>Texto sobre a organização <span class="dica">rodapé</span>' +
+      '<textarea name="sobre" rows="3">' + esc(config.sobre || "") + '</textarea></label></div>' +
+    '<div class="sub"><h4>Logotipo <span class="dica" style="text-transform:none">opcional</span></h4>' +
+      '<p class="explica">Se você enviar uma imagem, ela substitui as iniciais no selo redondo. ' +
+      'Use uma imagem quadrada; o corte é circular.</p>' +
+      '<div class="campos" style="margin-top:10px">' +
+        '<label>Enviar arquivo<input type="file" id="arquivo-logo" accept="image/*"></label></div>' +
+      '<div id="previa-logo" style="margin-top:10px"></div>' +
+    '</div>' +
+    '<div class="acoes"><button class="btn" type="submit">Salvar identidade</button></div></form></div>';
+
+  html += '<div class="painel"><span class="eyebrow">Recebimento</span><h3 style="margin-top:4px">Dados do Pix</h3>' +
+    '<p style="color:var(--tinta-media);font-size:.9rem;margin-top:6px">' +
+      'A chave fica guardada no banco e não é exposta no site: só é usada para montar a cobrança ' +
+      'de quem já tem inscrição pendente. Nome e cidade seguem o limite do padrão do Banco Central.</p>' +
+    '<form id="form-config"><div class="campos duas">' +
+      campo("organizacao", "Nome da organização", config.organizacao) +
+      campo("chave_pix", "Chave Pix", config.chave_pix, "CPF, CNPJ, e-mail, telefone ou chave aleatória", "mono") +
+      campo("beneficiario", "Nome do recebedor", config.beneficiario, "como está na conta", "", 25) +
+      campo("cidade", "Cidade do recebedor", config.cidade, "máx. 15 caracteres", "", 15) +
+    '</div><div class="acoes"><button class="btn" type="submit">Salvar dados do Pix</button></div></form></div>';
+
+  html += '<div class="painel">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">' +
+      '<div><span class="eyebrow">Programação</span><h3 style="margin-top:4px">Eventos</h3></div>' +
+      '<button class="btn" id="novo-evento">Novo evento</button></div>' +
+    '<div style="margin-top:12px">' +
+      (eventos.length ? eventos.map(linhaEvento).join("")
+        : '<p style="color:var(--tinta-media);font-size:.9rem;padding:10px 0">Nenhum evento ainda.</p>') +
+    '</div><div id="editor-evento"></div></div>';
+
+  html += '<div class="painel">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">' +
+      '<div><span class="eyebrow">Lista</span><h3 style="margin-top:4px">Inscritos</h3></div>' +
+      (inscritos.length ? '<button class="btn fantasma" id="exportar">Baixar planilha</button>' : "") +
+    '</div>' + tabelaInscritos(inscritos) + '</div>';
+
+  $("#v-painel").innerHTML = html + '</div></div>';
+  ligarPainel();
+}
+
+const numero = (v, r) => '<div class="numero"><b>' + esc(v) + '</b><span>' + r + '</span></div>';
+function campo(nome, rotulo, valor, dica, classe, max) {
+  return '<label>' + rotulo + (dica ? ' <span class="dica">' + dica + '</span>' : "") +
+    '<input name="' + nome + '" value="' + esc(valor || "") + '"' +
+    (classe ? ' class="' + classe + '"' : "") + (max ? ' maxlength="' + max + '"' : "") + '></label>';
+}
+
+function linhaEvento(ev) {
+  const lotes = (ev.lotes || []).slice().sort((a, b) => a.ordem - b.ordem);
+  const preco = lotes.length ? lotes[0].preco_centavos : 0;
+  return '<div class="linha-item"><div class="quem">' +
+    '<b>' + esc(ev.nome) + (ev.publicado ? "" : ' <span class="tag pendente" style="margin-left:6px">rascunho</span>') +
+      (ev.destaque ? ' <span class="tag espera">destaque</span>' : "") + '</b>' +
+    '<small>' + esc(ev.categoria || "—") + " · " + esc(dataLonga(ev.data)) +
+      (ev.hora ? " · " + hora(ev.hora) : "") + (cidadeUF(ev) ? " · " + esc(cidadeUF(ev)) : "") +
+      " · a partir de " + (preco > 0 ? dinheiro(preco) : "gratuito") +
+      " · " + lotes.length + " lote(s)" +
+      (String(ev.edital || "").trim() ? " · com edital" : "") +
+      (ev.resultados_publicados ? " · resultado publicado" : "") + '</small>' +
+    '</div><div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="btn fantasma pequeno" data-editar="' + ev.id + '">Editar</button>' +
+      '<button class="btn fantasma pequeno" data-resultados-de="' + ev.id + '">Resultados</button>' +
+      '<button class="btn fantasma pequeno" data-publicar="' + ev.id + '">' +
+        (ev.publicado ? "Despublicar" : "Publicar") + '</button>' +
+      '<button class="btn fantasma pequeno" data-abrir-fechar="' + ev.id + '">' +
+        (ev.inscricoes_abertas ? "Encerrar inscrições" : "Reabrir") + '</button>' +
+      '<button class="btn perigo pequeno" data-apagar="' + ev.id + '">Apagar</button>' +
+    '</div></div>';
+}
+
+function tabelaInscritos(lista) {
+  if (!lista.length)
+    return '<div class="vazio" style="margin-top:14px"><h3>Ninguém se inscreveu ainda</h3>' +
+      '<p>Publique um evento e divulgue o link do site.</p></div>';
+  return '<div class="rolagem" style="margin-top:14px"><table><thead><tr>' +
+    '<th>Participante</th><th>Evento</th><th>Lote</th><th>Código</th><th>Valor</th><th>Situação</th><th></th>' +
+    '</tr></thead><tbody>' + lista.map(i => {
+      const ev = i.eventos || {};
+      const respostas = Object.values(i.respostas || {}).join(" · ");
+      return '<tr>' +
+        '<td><span class="nome">' + esc(i.participante_nome) + '</span>' +
+          (i.eh_titular ? "" : ' <span class="tag espera">dependente</span>') +
+          '<br><span class="contato">' + esc(i.participante_email) +
+          (i.participante_telefone ? " · " + esc(i.participante_telefone) : "") + '</span>' +
+          (respostas ? '<br><span class="respostas">' + esc(respostas) + '</span>' : "") +
+          (i.observacao ? '<br><span class="contato">“' + esc(i.observacao) + '”</span>' : "") + '</td>' +
+        '<td>' + esc(ev.nome || "—") + '</td>' +
+        '<td>' + esc(i.lote_nome || "—") + '</td>' +
+        '<td class="mono">' + esc(i.codigo) + '</td>' +
+        '<td class="mono">' + (i.valor_centavos > 0 ? dinheiro(i.valor_centavos) : "—") + '</td>' +
+        '<td><span class="tag ' + classeStatus(i.status) + '">' + rotuloStatus(i.status) + '</span></td>' +
+        '<td style="white-space:nowrap">' +
+          (i.status === "espera" ? '<button class="btn pequeno" data-status="' + i.id + '|pendente">Chamar da fila</button> ' : "") +
+          (i.status !== "pago" && i.status !== "espera" ? '<button class="btn fantasma pequeno" data-status="' + i.id + '|pago">Marcar pago</button> ' : "") +
+          (i.status !== "cancelada" ? '<button class="btn perigo pequeno" data-status="' + i.id + '|cancelada">Cancelar</button>' : "") +
+          (i.status === "cancelada" ? '<button class="btn fantasma pequeno" data-status="' + i.id + '|pendente">Reabrir</button>' : "") +
+        '</td></tr>';
+    }).join("") + '</tbody></table></div>';
+}
+
+let edLogo = "";
+
+function ligarPainel() {
+  edLogo = estado.painel.config.logo_url || "";
+  const previaLogo = () => {
+    $("#previa-logo").innerHTML = edLogo
+      ? '<img src="' + esc(edLogo) + '" alt="Prévia do logotipo" ' +
+        'style="width:72px;height:72px;object-fit:cover;border-radius:50%;border:1px solid var(--borda)">' +
+        '<div class="acoes" style="margin-top:8px"><button type="button" class="btn perigo pequeno" id="tirar-logo">Voltar às iniciais</button></div>'
+      : '<p class="mini-vazio">Sem logotipo: o selo mostra as iniciais.</p>';
+  };
+  previaLogo();
+
+  $("#previa-logo").addEventListener("click", e => {
+    if (e.target.id === "tirar-logo") { edLogo = ""; previaLogo(); }
+  });
+  $("#arquivo-logo").addEventListener("change", async e => {
+    const arq = e.target.files && e.target.files[0];
+    if (!arq) return;
+    if (arq.size > 2 * 1024 * 1024) { torrar("Imagem grande demais — use até 2 MB"); return; }
+    $("#previa-logo").innerHTML = '<p class="carregando">Enviando…</p>';
+    try { edLogo = await api.enviarCapa(arq); torrar("Logotipo enviado"); }
+    catch (err) { torrar(mensagemDe(err)); }
+    previaLogo();
+  });
+
+  // os dois campos de cor andam juntos
+  const cor = $("#cor-acento"), corTexto = $("#cor-acento-texto");
+  const valida = v => /^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/.test(v);
+  cor.addEventListener("input", () => {
+    corTexto.value = cor.value.toUpperCase();
+    document.documentElement.style.setProperty("--amarelo", cor.value);
+    document.documentElement.style.setProperty("--sobre-amarelo", tintaSobre(cor.value));
+  });
+  corTexto.addEventListener("input", () => {
+    if (!valida(corTexto.value)) return;
+    cor.value = corTexto.value;
+    document.documentElement.style.setProperty("--amarelo", corTexto.value);
+    document.documentElement.style.setProperty("--sobre-amarelo", tintaSobre(corTexto.value));
+  });
+
+  $("#form-identidade").addEventListener("submit", async e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const corEscolhida = String(f.get("cor_acento_texto") || f.get("cor_acento") || "").trim().toUpperCase();
+    if (!valida(corEscolhida)) { torrar("Cor inválida — use o formato #RRGGBB"); return; }
+    try {
+      await api.salvarConfiguracao({
+        sigla: String(f.get("sigla") || "B").trim().toUpperCase().slice(0, 3) || "B",
+        nome_site: String(f.get("nome_site") || "").trim() || "Balcão",
+        subtitulo: String(f.get("subtitulo") || "").trim(),
+        cor_acento: corEscolhida,
+        contato: String(f.get("contato") || "").trim(),
+        whatsapp: String(f.get("whatsapp") || "").trim(),
+        instagram: String(f.get("instagram") || "").trim().replace(/^@/, ""),
+        sobre: String(f.get("sobre") || "").trim(),
+        logo_url: edLogo
+      });
+      aplicarIdentidade(await api.identidade());
+      torrar("Identidade salva");
+      await telaPainel();
+    } catch (err) { torrar(mensagemDe(err)); }
+  });
+
+  $("#form-config").addEventListener("submit", async e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    try {
+      await api.salvarConfiguracao({
+        organizacao: String(f.get("organizacao") || "").trim(),
+        chave_pix: String(f.get("chave_pix") || "").trim(),
+        beneficiario: String(f.get("beneficiario") || "").trim(),
+        cidade: String(f.get("cidade") || "").trim()
+      });
+      aplicarIdentidade(await api.identidade());
+      torrar("Dados do Pix salvos");
+      await telaPainel();
+    } catch (err) { torrar(mensagemDe(err)); }
+  });
+  $("#novo-evento").addEventListener("click", () => editorEvento(null));
+  const bx = $("#exportar");
+  if (bx) bx.addEventListener("click", () => torrar("Na prévia o download fica desligado; no site real baixa o CSV"));
+}
+
+/* ------------------------------------------------- editor de evento ---- */
+
+function linhaLoteHTML(l, i) {
+  return '<div class="mini-linha lote">' +
+    '<label>Nome do lote<input data-lote="' + i + '" data-k="nome" value="' + esc(l.nome || "") + '" placeholder="1º lote"></label>' +
+    '<label>Valor R$<input data-lote="' + i + '" data-k="preco_centavos" type="number" min="0" step="0.01" value="' +
+      ((l.preco_centavos || 0) / 100).toFixed(2) + '"></label>' +
+    '<label>Vende até <span class="dica">opcional</span><input data-lote="' + i + '" data-k="vende_ate" type="date" value="' +
+      esc(l.vende_ate || "") + '"></label>' +
+    '<label>Quantidade <span class="dica">0 = livre</span><input data-lote="' + i + '" data-k="quantidade" type="number" min="0" step="1" value="' +
+      (l.quantidade || 0) + '"></label>' +
+    '<button type="button" class="btn perigo pequeno" data-del-lote="' + i + '">Remover</button></div>';
+}
+function linhaPerguntaHTML(c, i) {
+  const tipos = [["texto", "Texto livre"], ["opcoes", "Lista de opções"], ["cpf", "CPF"], ["data", "Data"]];
+  return '<div class="mini-linha campo">' +
+    '<label>Pergunta<input data-pergunta="' + i + '" data-k="rotulo" value="' + esc(c.rotulo || "") + '" placeholder="Tamanho da camiseta"></label>' +
+    '<label>Tipo<select data-pergunta="' + i + '" data-k="tipo">' +
+      tipos.map(t => '<option value="' + t[0] + '"' + (c.tipo === t[0] ? " selected" : "") + '>' + t[1] + '</option>').join("") +
+    '</select></label>' +
+    '<label>' + (c.tipo === "opcoes" ? "Opções separadas por vírgula" : "Texto de exemplo") +
+      '<input data-pergunta="' + i + '" data-k="opcoes" value="' + esc(c.opcoes || "") + '" placeholder="' +
+      (c.tipo === "opcoes" ? "P, M, G, GG" : "opcional") + '"></label>' +
+    '<label class="caixinha"><input type="checkbox" data-pergunta="' + i + '" data-k="obrigatorio"' +
+      (c.obrigatorio ? " checked" : "") + '>Obrigatório</label>' +
+    '<button type="button" class="btn perigo pequeno" data-del-pergunta="' + i + '">Remover</button></div>';
+}
+const desenharLotes = () => {
+  $("#lista-lotes").innerHTML = edLotes.length ? edLotes.map(linhaLoteHTML).join("")
+    : '<p class="mini-vazio">Adicione ao menos um lote para definir o preço.</p>';
+};
+const desenharPerguntas = () => {
+  $("#lista-perguntas").innerHTML = edPerguntas.length ? edPerguntas.map(linhaPerguntaHTML).join("")
+    : '<p class="mini-vazio">Nenhuma pergunta extra além de nome, nascimento, e-mail e telefone.</p>';
+};
+const desenharCapa = () => {
+  $("#previa-capa").innerHTML = edCapa
+    ? '<img class="previa-capa" src="' + esc(edCapa) + '" alt="Prévia da capa">' +
+      '<div class="acoes" style="margin-top:8px"><button type="button" class="btn perigo pequeno" id="tirar-capa">Remover capa</button></div>'
+    : '<p class="mini-vazio">Sem capa: o cartão mostra as iniciais do evento sobre um fundo grafite.</p>';
+};
+
+function editorEvento(id) {
+  const ev = id ? estado.painel.eventos.find(e => e.id === id) : null;
+  const v = ev || {
+    nome: "", descricao: "", edital: "", data: "", hora: "07:00", local: "",
+    categoria: "Corrida de rua", cidade: "", uf: "", distancias: "", imagem_url: "",
+    vagas: 0, espera_ativa: true, inscricoes_abertas: true, publicado: false, destaque: false
+  };
+  edEventoId = id;
+  edCapa = v.imagem_url || "";
+  edLotes = (ev ? (ev.lotes || []).slice().sort((a, b) => a.ordem - b.ordem) : [])
+    .map(l => Object.assign({}, l));
+  if (!edLotes.length) edLotes = [{ nome: "Lote único", preco_centavos: 0, vende_ate: "", quantidade: 0 }];
+  edPerguntas = (ev ? (ev.perguntas || []).slice().sort((a, b) => a.ordem - b.ordem) : [])
+    .map(p => Object.assign({}, p));
+
+  const antigo = $("#editor-evento");
+  antigo.replaceWith(antigo.cloneNode(false));
+  const caixa = $("#editor-evento");
+
+  caixa.innerHTML =
+    '<form id="form-evento" style="margin-top:20px;border-top:1px solid var(--borda);padding-top:20px">' +
+      '<h3>' + (ev ? "Editar evento" : "Novo evento") + '</h3>' +
+      '<div class="campos duas">' +
+        '<label>Nome do evento<input name="nome" required value="' + esc(v.nome) + '"></label>' +
+        '<label>Modalidade<select name="categoria">' +
+          MODALIDADES.map(m => '<option' + (v.categoria === m ? " selected" : "") + '>' + m + '</option>').join("") +
+        '</select></label>' +
+        '<label>Local<input name="local" value="' + esc(v.local) + '" placeholder="Ponto de largada, endereço"></label>' +
+        '<label>Percursos <span class="dica">separados por vírgula</span>' +
+          '<input name="distancias" value="' + esc(v.distancias) + '" placeholder="3 km, 5 km, 10 km"></label>' +
+        '<label>Cidade<input name="cidade" value="' + esc(v.cidade) + '"></label>' +
+        '<label>UF<input name="uf" value="' + esc(v.uf) + '" maxlength="2" placeholder="PB"></label>' +
+        '<label>Data<input name="data" type="date" value="' + esc(v.data || "") + '"></label>' +
+        '<label>Horário<input name="hora" type="time" value="' + esc(hora(v.hora) || "") + '"></label>' +
+        '<label>Vagas <span class="dica">0 para ilimitado</span>' +
+          '<input name="vagas" type="number" min="0" step="1" value="' + (v.vagas || 0) + '"></label>' +
+        '<div style="display:flex;flex-direction:column;gap:8px;justify-content:flex-end;padding-bottom:4px">' +
+          '<label class="caixinha"><input type="checkbox" name="espera_ativa"' +
+            (v.espera_ativa ? " checked" : "") + '>Abrir lista de espera quando lotar</label>' +
+          '<label class="caixinha"><input type="checkbox" name="destaque"' +
+            (v.destaque ? " checked" : "") + '>Mostrar em destaque na abertura</label>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="sub"><h4>Imagem de capa</h4>' +
+        '<p class="explica">Aparece no cartão e na faixa de destaque. Use uma foto larga (16:9), ' +
+        'até uns 2 MB. Ela fica pública, como a capa de qualquer evento.</p>' +
+        '<div class="campos" style="margin-top:10px">' +
+          '<label>Enviar arquivo<input type="file" id="arquivo-capa" accept="image/*"></label>' +
+        '</div>' +
+        '<div id="previa-capa" style="margin-top:10px"></div>' +
+      '</div>' +
+
+      '<div class="campos"><label>Resumo curto<textarea name="descricao" placeholder="Uma linha que aparece no cartão do evento">' +
+        esc(v.descricao) + '</textarea></label></div>' +
+      '<div class="campos"><label>Edital do evento ' +
+        '<span class="dica">use ## para títulos, - para listas e **negrito**</span>' +
+        '<textarea name="edital" rows="12" placeholder="## Percurso&#10;- 3 km, 5 km e 10 km&#10;&#10;## Categorias&#10;...">' +
+        esc(v.edital) + '</textarea></label></div>' +
+
+      '<div class="sub"><h4>Lotes de preço</h4>' +
+        '<p class="explica">Vale o primeiro lote que ainda não venceu nem esgotou. ' +
+        'Quem decide isso na hora da inscrição é o banco, não o navegador.</p>' +
+        '<div class="mini-lista" id="lista-lotes"></div>' +
+        '<div class="acoes" style="margin-top:12px"><button type="button" class="btn fantasma pequeno" id="add-lote">Adicionar lote</button></div>' +
+      '</div>' +
+
+      '<div class="sub"><h4>Perguntas do formulário</h4>' +
+        '<p class="explica">O CPF é conferido pelo dígito verificador. Peça só o que a prova realmente precisa.</p>' +
+        '<div class="mini-lista" id="lista-perguntas"></div>' +
+        '<div class="acoes" style="margin-top:12px">' +
+          '<button type="button" class="btn fantasma pequeno" id="add-pergunta">Adicionar pergunta</button>' +
+          '<button type="button" class="btn fantasma pequeno" id="perguntas-corrida">Usar o conjunto de corrida</button>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="acoes">' +
+        '<button class="btn" type="submit">' + (ev ? "Salvar alterações" : "Criar evento") + '</button>' +
+        '<button class="btn fantasma" type="button" id="cancelar-evento">Cancelar</button>' +
+        (ev ? "" : '<span style="font-size:.83rem;color:var(--tinta-fraca)">' +
+          'O evento nasce como rascunho: só aparece no site depois que você publicar.</span>') +
+      '</div><div id="erro-evento"></div>' +
+    '</form>';
+
+  desenharLotes();
+  desenharPerguntas();
+  desenharCapa();
+  caixa.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+  const sincronizar = e => {
+    const t = e.target, k = t.dataset.k;
+    if (!k) return;
+    if (t.dataset.lote != null) {
+      const l = edLotes[+t.dataset.lote];
+      if (!l) return;
+      l[k] = k === "preco_centavos" ? Math.round(parseFloat(t.value || "0") * 100) || 0
+        : k === "quantidade" ? parseInt(t.value || "0", 10) || 0 : t.value;
+    }
+    if (t.dataset.pergunta != null) {
+      const p = edPerguntas[+t.dataset.pergunta];
+      if (!p) return;
+      p[k] = k === "obrigatorio" ? t.checked : t.value;
+      if (k === "tipo") desenharPerguntas();
+    }
+  };
+  caixa.addEventListener("input", sincronizar);
+  caixa.addEventListener("change", sincronizar);
+
+  caixa.addEventListener("click", e => {
+    const b = e.target.closest("[data-del-lote],[data-del-pergunta],#tirar-capa");
+    if (!b) return;
+    if (b.id === "tirar-capa") { edCapa = ""; return desenharCapa(); }
+    if (b.dataset.delLote != null) { edLotes.splice(+b.dataset.delLote, 1); desenharLotes(); }
+    else { edPerguntas.splice(+b.dataset.delPergunta, 1); desenharPerguntas(); }
+  });
+
+  $("#arquivo-capa").addEventListener("change", async e => {
+    const arq = e.target.files && e.target.files[0];
+    if (!arq) return;
+    if (arq.size > 5 * 1024 * 1024) { torrar("Imagem grande demais — use até 5 MB"); return; }
+    $("#previa-capa").innerHTML = '<p class="carregando">Enviando imagem…</p>';
+    try { edCapa = await api.enviarCapa(arq); torrar("Capa enviada"); }
+    catch (err) { torrar(mensagemDe(err)); }
+    desenharCapa();
+  });
+
+  $("#add-lote").addEventListener("click", () => {
+    const ult = edLotes[edLotes.length - 1];
+    edLotes.push({
+      nome: (edLotes.length + 1) + "º lote",
+      preco_centavos: ult ? ult.preco_centavos : 0, vende_ate: "", quantidade: 0
+    });
+    desenharLotes();
+  });
+  $("#add-pergunta").addEventListener("click", () => {
+    edPerguntas.push({ rotulo: "", tipo: "texto", opcoes: "", obrigatorio: false });
+    desenharPerguntas();
+  });
+  $("#perguntas-corrida").addEventListener("click", () => {
+    const tem = r => edPerguntas.some(p => (p.rotulo || "").toLowerCase() === r.toLowerCase());
+    for (const s of [
+      { rotulo: "Percurso", tipo: "opcoes", opcoes: "3 km, 5 km, 10 km", obrigatorio: true },
+      { rotulo: "Tamanho da camiseta", tipo: "opcoes", opcoes: "PP, P, M, G, GG", obrigatorio: true },
+      { rotulo: "Sexo (para a categoria)", tipo: "opcoes", opcoes: "Feminino, Masculino", obrigatorio: true },
+      { rotulo: "Equipe ou assessoria", tipo: "texto", opcoes: "deixe em branco se corre sozinho", obrigatorio: false },
+      { rotulo: "Contato de emergência", tipo: "texto", opcoes: "Nome e telefone", obrigatorio: true },
+      { rotulo: "Vínculo com a escola", tipo: "opcoes", opcoes: "Aluno, Responsável, Servidor, Comunidade", obrigatorio: false }
+    ]) if (!tem(s.rotulo)) edPerguntas.push(s);
+    desenharPerguntas();
+    torrar("Perguntas de corrida adicionadas");
+  });
+
+  $("#cancelar-evento").addEventListener("click", () => { caixa.innerHTML = ""; });
+
+  $("#form-evento").addEventListener("submit", async e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const lotes = edLotes.filter(l => String(l.nome || "").trim());
+    if (!lotes.length) {
+      $("#erro-evento").innerHTML = '<div class="erro">Defina pelo menos um lote de preço.</div>';
+      return;
+    }
+    const nome = String(f.get("nome") || "").trim();
+    try {
+      await api.salvarEvento({
+        id: edEventoId || undefined,
+        slug: ev ? ev.slug : gerarSlug(nome),
+        nome,
+        categoria: String(f.get("categoria") || "").trim(),
+        local: String(f.get("local") || "").trim(),
+        cidade: String(f.get("cidade") || "").trim(),
+        uf: String(f.get("uf") || "").trim().toUpperCase(),
+        distancias: String(f.get("distancias") || "").trim(),
+        imagem_url: edCapa,
+        data: f.get("data") || null,
+        hora: f.get("hora") || null,
+        vagas: parseInt(f.get("vagas") || "0", 10) || 0,
+        espera_ativa: f.get("espera_ativa") === "on",
+        destaque: f.get("destaque") === "on",
+        descricao: String(f.get("descricao") || "").trim(),
+        edital: String(f.get("edital") || "").trim(),
+        lotes,
+        perguntas: edPerguntas.filter(p => String(p.rotulo || "").trim())
+      });
+      torrar(ev ? "Evento atualizado" : "Evento criado como rascunho");
+      await telaPainel();
+    } catch (err) {
+      $("#erro-evento").innerHTML = '<div class="erro">' + esc(mensagemDe(err)) + '</div>';
+    }
+  });
+}
+
+/* ---------------------------------------------- resultados no painel --- */
+
+async function editorResultados(eventoId) {
+  const ev = estado.painel.eventos.find(e => e.id === eventoId);
+  if (!ev) return;
+  let atuais = [];
+  try { atuais = await api.resultadosDoEvento(eventoId); } catch (e) { atuais = []; }
+
+  const antigo = $("#editor-evento");
+  antigo.replaceWith(antigo.cloneNode(false));
+  const caixa = $("#editor-evento");
+
+  caixa.innerHTML =
+    '<div style="margin-top:20px;border-top:1px solid var(--borda);padding-top:20px">' +
+      '<h3>Resultados · ' + esc(ev.nome) + '</h3>' +
+      '<p class="explica" style="margin-top:6px">Cole a apuração, uma linha por atleta, com os campos ' +
+      'separados por <b>ponto e vírgula</b> ou <b>tabulação</b> — é o que sai da planilha da cronometragem. ' +
+      'A ordem das colunas é: posição; atleta; equipe; categoria; percurso; tempo. ' +
+      'Colunas do fim podem faltar.</p>' +
+      '<div class="campos" style="margin-top:12px"><label>Classificação' +
+        '<textarea id="texto-resultados" rows="12" placeholder="1;Maria Souza;Equipe Alfa;F30-34;10 km;00:42:11&#10;2;João Lima;;M35-39;10 km;00:43:05">' +
+        atuais.map(l => [l.posicao, l.atleta, l.equipe, l.categoria, l.percurso, l.tempo]
+          .join(";").replace(/;+$/, "")).join("\n") + '</textarea></label></div>' +
+      '<div id="previa-resultados"></div>' +
+      '<div class="acoes">' +
+        '<button class="btn" id="salvar-resultados">Salvar classificação</button>' +
+        '<label class="caixinha"><input type="checkbox" id="publicar-resultados"' +
+          (ev.resultados_publicados ? " checked" : "") + '>Publicar no site</label>' +
+        '<button class="btn fantasma" id="fechar-resultados">Fechar</button>' +
+      '</div>' +
+      (atuais.length ? '<p style="font-size:.82rem;color:var(--tinta-fraca);margin-top:8px">' +
+        atuais.length + ' linhas já salvas. Salvar substitui a classificação inteira.</p>' : "") +
+    '</div>';
+
+  caixa.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  $("#fechar-resultados").addEventListener("click", () => { caixa.innerHTML = ""; });
+
+  $("#salvar-resultados").addEventListener("click", async () => {
+    const linhas = analisarResultados($("#texto-resultados").value);
+    if (!linhas.length && !confirm("Nenhuma linha reconhecida. Apagar a classificação atual?")) return;
+    const botao = $("#salvar-resultados");
+    botao.disabled = true; botao.textContent = "Salvando…";
+    try {
+      await api.substituirResultados(eventoId, linhas);
+      await api.salvarEvento({
+        id: eventoId,
+        resultados_publicados: $("#publicar-resultados").checked,
+        lotes: (ev.lotes || []).slice().sort((a, b) => a.ordem - b.ordem),
+        perguntas: (ev.perguntas || []).slice().sort((a, b) => a.ordem - b.ordem)
+      });
+      torrar(linhas.length + " classificados salvos");
+      await telaPainel();
+    } catch (err) {
+      $("#previa-resultados").innerHTML = '<div class="erro">' + esc(mensagemDe(err)) + '</div>';
+      botao.disabled = false; botao.textContent = "Salvar classificação";
+    }
+  });
+}
+
+/** Lê a colagem da planilha: posição; atleta; equipe; categoria; percurso; tempo. */
+function analisarResultados(texto) {
+  const linhas = [];
+  for (const bruta of String(texto || "").split(/\r?\n/)) {
+    const l = bruta.trim();
+    if (!l) continue;
+    const col = l.split(/\t|;/).map(c => c.trim());
+    // pula um cabeçalho colado junto
+    if (/^(pos|posi|class)/i.test(col[0]) && !/^\d+$/.test(col[0])) continue;
+    const posicao = /^\d+$/.test(col[0]) ? parseInt(col[0], 10) : null;
+    const deslocado = posicao == null ? 0 : 1;
+    const atleta = (col[deslocado] || "").trim();
+    if (!atleta) continue;
+    linhas.push({
+      posicao,
+      atleta,
+      equipe: col[deslocado + 1] || "",
+      categoria: col[deslocado + 2] || "",
+      percurso: col[deslocado + 3] || "",
+      tempo: col[deslocado + 4] || ""
+    });
+  }
+  return linhas;
+}
+
+function gerarSlug(nome) {
+  const base = String(nome).normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "evento";
+  return base + "-" + Math.random().toString(36).slice(2, 6);
+}
+
+function exportar() {
+  const lista = estado.painel.inscritos;
+  const rotulos = [];
+  for (const ev of estado.painel.eventos)
+    for (const p of (ev.perguntas || []))
+      if (!rotulos.some(r => r.rotulo === p.rotulo)) rotulos.push({ rotulo: p.rotulo, ids: [p.id] });
+      else rotulos.find(r => r.rotulo === p.rotulo).ids.push(p.id);
+
+  const linhas = [["Codigo", "Participante", "Nascimento", "Titular", "Email", "Telefone",
+    "Evento", "Lote", "Valor", "Situacao", ...rotulos.map(r => r.rotulo), "Observacao", "Inscrito em"]];
+  for (const i of lista) {
+    linhas.push([
+      i.codigo, i.participante_nome, dataBR(i.participante_nascimento),
+      i.eh_titular ? "sim" : "nao (dependente)",
+      i.participante_email, i.participante_telefone,
+      (i.eventos || {}).nome || "", i.lote_nome || "",
+      (i.valor_centavos / 100).toFixed(2).replace(".", ","),
+      rotuloStatus(i.status),
+      ...rotulos.map(r => r.ids.map(id => (i.respostas || {})[id]).find(Boolean) || ""),
+      i.observacao || "",
+      new Date(i.criado_em).toLocaleString("pt-BR")
+    ]);
+  }
+  const csv = "﻿" + linhas.map(l =>
+    l.map(c => '"' + String(c == null ? "" : c).replace(/"/g, '""') + '"').join(";")).join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url; a.download = "inscricoes.csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+/* ============================================================== erros === */
+
+function mensagemDe(e) {
+  const m = (e && e.message) || "";
+  if (/failed to fetch|networkerror|load failed/i.test(m))
+    return "Não conseguimos falar com o servidor. Verifique sua conexão e tente de novo.";
+  if (/invalid api key|jwt/i.test(m))
+    return "A configuração do site está incorreta. Avise a organização.";
+  return m || "Não foi possível carregar.";
+}
+function erroNa(alvo, e) {
+  $(alvo).innerHTML = '<div class="faixa"><div class="limite">' +
+    '<div class="erro">' + esc(mensagemDe(e)) + '</div>' +
+    '<div class="acoes"><button class="btn fantasma" data-recarregar="1">Tentar de novo</button></div>' +
+    '</div></div>';
+}
+
+/* ======================================================= interações ===== */
+
+document.addEventListener("input", e => {
+  const t = e.target;
+  if (t && t.dataset && t.dataset.cpf) {
+    const fim = t.selectionStart === t.value.length;
+    t.value = formataCPF(t.value);
+    if (fim) t.setSelectionRange(t.value.length, t.value.length);
+  }
+});
+
+document.addEventListener("click", async e => {
+  const alvo = e.target.closest("[data-ir],[data-abrir],[data-inscrever],[data-voltar-evento]," +
+    "[data-copiar],[data-pix],[data-cancelar],[data-sair],[data-editar],[data-publicar]," +
+    "[data-abrir-fechar],[data-apagar],[data-status],[data-imprimir],[data-recarregar]," +
+    "[data-resultado],[data-resultados-de],[data-limpar-filtro]");
+  if (!alvo) return;
+  const d = alvo.dataset;
+  if (alvo.tagName === "A") e.preventDefault();
+
+  if (d.ir) return ir(d.ir);
+  if (d.recarregar) return desenhar();
+  if (d.imprimir) return window.print();
+  if (d.abrir) return ir("evento", d.abrir);
+  if (d.inscrever) return ir("inscricao");
+  if (d.voltarEvento) return ir("evento");
+  if (d.resultado) return ir("resultados", d.resultado);
+  if (d.limparFiltro) { estado.filtro = { texto: "", categoria: "", cidade: "" }; return desenharEventos(); }
+  if (d.sair) { await api.sair(); estado.sessao = null; estado.organizador = false; return ir("eventos"); }
+
+  if (d.copiar) {
+    try { await navigator.clipboard.writeText(d.copiar); torrar("Código Pix copiado"); }
+    catch (err) {
+      const t = document.createElement("textarea");
+      t.value = d.copiar; document.body.appendChild(t); t.select();
+      try { document.execCommand("copy"); torrar("Código Pix copiado"); }
+      catch (e2) { torrar("Selecione o código e copie manualmente"); }
+      t.remove();
+    }
+    return;
+  }
+  if (d.pix) return mostrarPix(d.pix);
+  if (d.cancelar) {
+    if (!confirm("Cancelar esta inscrição?")) return;
+    try { await api.cancelarInscricao(d.cancelar); torrar("Inscrição cancelada"); await telaMinhas(); }
+    catch (err) { torrar(mensagemDe(err)); }
+    return;
+  }
+
+  // painel
+  if (d.editar) return editorEvento(d.editar);
+  if (d.resultadosDe) return editorResultados(d.resultadosDe);
+  if (d.publicar || d.abrirFechar) {
+    const id = d.publicar || d.abrirFechar;
+    const ev = estado.painel.eventos.find(x => x.id === id);
+    if (!ev) return;
+    const campos = d.publicar ? { publicado: !ev.publicado } : { inscricoes_abertas: !ev.inscricoes_abertas };
+    const ordenar = lista => (lista || []).slice().sort((a, b) => a.ordem - b.ordem);
+    try {
+      await api.salvarEvento(Object.assign(
+        { id, lotes: ordenar(ev.lotes), perguntas: ordenar(ev.perguntas) }, campos));
+      await telaPainel();
+    } catch (err) { torrar(mensagemDe(err)); }
+    return;
+  }
+  if (d.apagar) {
+    const ev = estado.painel.eventos.find(x => x.id === d.apagar);
+    if (!ev) return;
+    if (!confirm("Apagar “" + ev.nome + "”? Se já houver inscrições, o banco recusa — encerre o evento em vez de apagar.")) return;
+    try { await api.apagarEvento(d.apagar); torrar("Evento apagado"); await telaPainel(); }
+    catch (err) { torrar("Não dá para apagar um evento que já tem inscrições. Use “Encerrar inscrições”."); }
+    return;
+  }
+  if (d.status) {
+    const [id, novo] = d.status.split("|");
+    try { await api.definirStatus(id, novo); torrar("Situação atualizada"); await telaPainel(); }
+    catch (err) { torrar(mensagemDe(err)); }
+  }
+});
+
+/* ============================================================= partida == */
+
+(async function iniciar() {
+  if (api.configPendente) {
+    $("#v-eventos").innerHTML =
+      '<div class="faixa"><div class="limite"><div class="painel">' +
+      '<span class="eyebrow">Falta um passo</span>' +
+      '<h2 style="margin-top:4px">Configure o Supabase</h2>' +
+      '<p style="color:var(--tinta-media);margin-top:10px">O arquivo <code class="mono">site/config.js</code> ' +
+      'ainda está com os valores de exemplo. Copie a <b>Project URL</b> e a <b>anon public key</b> do seu ' +
+      'projeto no Supabase (Project Settings › API) para dentro dele. O passo a passo completo está no ' +
+      '<b>README.md</b>.</p></div></div></div>';
+    return;
+  }
+  try { aplicarIdentidade(await api.identidade()); }
+  catch (e) { aplicarIdentidade(null); }
+  estado.sessao = await api.sessaoAtual();
+  estado.organizador = estado.sessao ? await api.souOrganizador() : false;
+
+  api.aoMudarSessao(async sessao => {
+    const entrouAgora = !!sessao && !estado.sessao;
+    estado.sessao = sessao;
+    estado.organizador = sessao ? await api.souOrganizador() : false;
+    if (entrouAgora) {
+      torrar("Você entrou como " + sessao.user.email);
+      return levarAoDestino();
+    }
+    desenhar();
+  });
+
+  // quem já chega logado (voltou do link do e-mail) volta para onde parou
+  if (estado.sessao && pegarDestino()) return levarAoDestino();
+  await ir("eventos");
+})();
+
+async function levarAoDestino() {
+  const destino = pegarDestino();
+  limparDestino();
+  if (!destino) return ir("minhas");
+  if (destino.vista === "inscricao" && destino.slug) {
+    try {
+      estado.evento = await api.eventoPublico(destino.slug);
+      if (estado.evento) return ir("inscricao");
+    } catch (e) { /* cai para a lista abaixo */ }
+  }
+  return ir(destino.vista === "inscricao" ? "eventos" : destino.vista);
+}
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,13 @@
+# pacote gerado para envio manual - a publicacao agora vem do GitHub
+site.zip
+
+# dependencias e lixo do sistema
+node_modules/
+.DS_Store
+Thumbs.db
+
+# NAO ignoramos o site/config.js de proposito:
+# ele guarda a URL do projeto e a chave publishable, que sao publicas por
+# natureza (viajam no navegador de qualquer visitante) e precisam estar no
+# repositorio para a Netlify publicar direto do GitHub.
+# O que NUNCA pode entrar aqui e a service_role / secret key.

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Balcão de Inscrições</title>
+<meta name="description" content="Inscrições, edital e resultados das corridas e eventos da escola. Pagamento por Pix na hora.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🏃</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Titillium+Web:wght@400;600;700;900&display=swap">
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+
+<header class="topo">
+  <div class="topo-in">
+    <div class="marca">
+      <div class="selo">B</div>
+      <div>
+        <b>Balcão</b>
+        <small id="marca-org">Inscrições esportivas</small>
+      </div>
+    </div>
+    <nav id="menu">
+      <button data-ir="eventos" aria-current="page">Eventos</button>
+      <button data-ir="resultados">Resultados</button>
+      <button data-ir="minhas">Minhas inscrições</button>
+      <button data-ir="painel" hidden>Painel</button>
+    </nav>
+    <div class="identidade" id="identidade"></div>
+  </div>
+</header>
+
+<main>
+  <section id="v-eventos"    class="secao ativa"></section>
+  <section id="v-evento"     class="secao"></section>
+  <section id="v-inscricao"  class="secao"></section>
+  <section id="v-minhas"     class="secao"></section>
+  <section id="v-resultados" class="secao"></section>
+  <section id="v-entrar"     class="secao"></section>
+  <section id="v-painel"     class="secao"></section>
+</main>
+
+<footer class="rodape">
+  <div class="rodape-in">
+    <div>
+      <h4>O Balcão</h4>
+      <p class="sobre" id="rodape-sobre">
+        Sistema de inscrições e pagamento por Pix para as corridas e eventos
+        esportivos da escola e da comunidade. Cada participante acompanha a
+        própria inscrição pela conta; a lista completa fica só com a organização.
+      </p>
+    </div>
+    <div>
+      <h4>Explorar</h4>
+      <ul>
+        <li><a href="#" data-ir="eventos">Eventos abertos</a></li>
+        <li><a href="#" data-ir="resultados">Resultados</a></li>
+        <li><a href="#" data-ir="minhas">Minhas inscrições</a></li>
+        <li><a href="#" data-ir="entrar">Entrar na conta</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Organização</h4>
+      <ul id="rodape-contato">
+        <li><span>Fale com a comissão organizadora</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="rodape-base">
+    <span id="rodape-assinatura">Balcão de Inscrições</span>
+  </div>
+</footer>
+
+<div class="torrada" id="torrada" role="status" aria-live="polite"></div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
