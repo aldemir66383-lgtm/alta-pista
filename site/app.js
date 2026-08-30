@@ -165,7 +165,7 @@ function dadosDaFolha(i, ev, rotulos) {
     sigla: id.sigla || "",
     marca: id.nome_site || "",
     /* a cor do evento manda; sem ela, a do site */
-    cor: e.peito_cor || id.cor_acento || "#111111",
+    cor: e.peito_cor || id.cor_acento || "#0B1B2B",
     digitos: e.numero_digitos || 0,
     logoUrl: e.peito_logo_url || "",
     fundoUrl: e.peito_fundo_url || ""
@@ -205,14 +205,14 @@ const IDENTIDADE_PADRAO = {
 function tintaSobre(hex) {
   let h = String(hex || "").replace("#", "");
   if (h.length === 3) h = h.split("").map(c => c + c).join("");
-  if (h.length !== 6) return "#171B1F";
+  if (h.length !== 6) return "#071320";
   const canal = i => {
     const v = parseInt(h.slice(i, i + 2), 16) / 255;
     return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
   };
   const luz = 0.2126 * canal(0) + 0.7152 * canal(2) + 0.0722 * canal(4);
   // contraste contra branco vs contra quase-preto
-  return (1.05 / (luz + 0.05)) > ((luz + 0.05) / 0.06) ? "#FFFFFF" : "#171B1F";
+  return (1.05 / (luz + 0.05)) > ((luz + 0.05) / 0.06) ? "#FFFFFF" : "#071320";
 }
 
 /** Versão mais escura da cor, para o estado de hover dos botões. */
@@ -1283,7 +1283,7 @@ const desenharPreviaPeito = () => {
     camisa: "G",
     sigla: (estado.identidade || {}).sigla || "",
     marca: (estado.identidade || {}).nome_site || "",
-    cor: /^#[0-9a-fA-F]{6}$/.test(cor) ? cor : ((estado.identidade || {}).cor_acento || "#111111"),
+    cor: /^#[0-9a-fA-F]{6}$/.test(cor) ? cor : ((estado.identidade || {}).cor_acento || "#0B1B2B"),
     logoUrl: edPeitoLogo,
     fundoUrl: edPeitoFundo
   });
