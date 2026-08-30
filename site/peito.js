@@ -43,6 +43,16 @@ function corpoDoNumero(texto) {
   return 215;
 }
 
+/**
+ * Aplica a quantidade de algarismos escolhida pelo evento: com 4, o
+ * corredor 7 vira 0007. Zero (ou nada) mostra o número como ele é.
+ */
+export function formatarNumero(numero, digitos) {
+  if (numero == null) return "?";
+  const d = Math.min(6, Math.max(0, parseInt(digitos, 10) || 0));
+  return String(numero).padStart(d, "0");
+}
+
 /** O mesmo cuidado para o número menor dos canhotos destacáveis. */
 function corpoDoCanhoto(texto) {
   const n = texto.length;
@@ -58,6 +68,16 @@ function encurtar(texto, limite) {
   const corte = t.slice(0, limite);
   const espaco = corte.lastIndexOf(" ");
   return (espaco > limite * 0.6 ? corte.slice(0, espaco) : corte).trim() + "…";
+}
+
+/**
+ * Só deixa passar endereço de imagem que aponte para a web ou para um
+ * dado embutido. Sem isso, um endereço com "javascript:" viraria código
+ * dentro do SVG que o navegador vai abrir para imprimir.
+ */
+function enderecoDeImagem(url) {
+  const u = String(url || "").trim();
+  return /^(https?:\/\/|data:image\/)/i.test(u) ? u : "";
 }
 
 /** O QR do código, desenhado dentro de um quadrado de lado `lado`. */
@@ -86,11 +106,14 @@ function qrEmbutido(codigo, x, y, lado) {
  *   sigla       iniciais da marca, ex. "AP"
  *   marca       nome do site, ex. "Alta Pista"
  *   cor         cor de acento em hexadecimal
+ *   digitos     quantos algarismos o número sempre terá (0 = como é)
+ *   logoUrl     logotipo do evento, no lugar da sigla
+ *   fundoUrl    arte pronta cobrindo a folha, atrás do número
  */
 export function folha(d) {
   const cor   = /^#[0-9a-fA-F]{6}$/.test(d.cor || "") ? d.cor : "#111111";
   const tinta = tintaSobre(cor);
-  const num   = String(d.numero == null ? "?" : d.numero);
+  const num   = formatarNumero(d.numero, d.digitos);
   const meio  = (LARGURA - FAIXA) / 2;
   /* o QR ocupa o canto de baixo à esquerda; nome e distância se centram
      no que sobra, senão o nome passa por cima do QR */
@@ -113,20 +136,47 @@ export function folha(d) {
     '<line x1="' + (LARGURA - FAIXA + 10) + '" y1="' + y + '" x2="' + (LARGURA - 10) + '" y2="' + y +
     '" stroke="#c9c9c9" stroke-width="2" stroke-dasharray="7 7"/>';
 
+  const fundo = enderecoDeImagem(d.fundoUrl);
+  const logo  = enderecoDeImagem(d.logoUrl);
+  const eu    = "p" + Math.random().toString(36).slice(2, 9);   // ids únicos por folha
+
   return '' +
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + LARGURA + ' ' + ALTURA + '" ' +
     'font-family="Helvetica, Arial, sans-serif" role="img" ' +
     'aria-label="Número de peito ' + esc(num) + ' de ' + esc(d.nome) + '">' +
 
+    '<defs><clipPath id="folha-' + eu + '">' +
+      '<rect x="3" y="3" width="' + (LARGURA - 6) + '" height="' + (ALTURA - 6) + '" rx="16"/>' +
+    '</clipPath>' +
+    (logo ? '<clipPath id="logo-' + eu + '"><circle cx="66" cy="54" r="30"/></clipPath>' : '') +
+    '</defs>' +
+
     '<rect width="' + LARGURA + '" height="' + ALTURA + '" fill="#ffffff"/>' +
+
+    /* a arte do evento, se houver, cobrindo a folha por baixo de tudo.
+       O véu branco por cima garante que o número continue legível — sem
+       ele, uma foto escura engoliria os algarismos pretos. */
+    (fundo
+      ? '<g clip-path="url(#folha-' + eu + ')">' +
+        '<image href="' + esc(fundo) + '" x="3" y="3" ' +
+          'width="' + (LARGURA - 6) + '" height="' + (ALTURA - 6) + '" ' +
+          'preserveAspectRatio="xMidYMid slice"/>' +
+        '<rect x="3" y="3" width="' + (LARGURA - 6) + '" height="' + (ALTURA - 6) + '" ' +
+          'fill="#ffffff" opacity="0.74"/></g>'
+      : '') +
+
     '<rect x="1.5" y="1.5" width="' + (LARGURA - 3) + '" height="' + (ALTURA - 3) + '" ' +
       'fill="none" stroke="#d6d6d6" stroke-width="3" rx="18"/>' +
 
     /* faixa do topo, com a marca à esquerda e o evento no centro */
     '<path d="M18,3 H' + (LARGURA - 18) + ' a15,15 0 0 1 15,15 V104 H3 V18 a15,15 0 0 1 15,-15 z" fill="' + cor + '"/>' +
-    '<circle cx="66" cy="54" r="30" fill="' + tinta + '" opacity="0.16"/>' +
-    '<text x="66" y="65" text-anchor="middle" font-size="30" font-weight="800" fill="' + tinta + '">' +
-      esc((d.sigla || "").slice(0, 3).toUpperCase()) + '</text>' +
+    (logo
+      ? '<circle cx="66" cy="54" r="30" fill="#ffffff"/>' +
+        '<image href="' + esc(logo) + '" x="36" y="24" width="60" height="60" ' +
+          'preserveAspectRatio="xMidYMid slice" clip-path="url(#logo-' + eu + ')"/>'
+      : '<circle cx="66" cy="54" r="30" fill="' + tinta + '" opacity="0.16"/>' +
+        '<text x="66" y="65" text-anchor="middle" font-size="30" font-weight="800" fill="' + tinta + '">' +
+          esc((d.sigla || "").slice(0, 3).toUpperCase()) + '</text>') +
     '<text x="112" y="46" font-size="27" font-weight="700" fill="' + tinta + '">' +
       esc(encurtar(d.evento, 42)) + '</text>' +
     '<text x="112" y="78" font-size="20" fill="' + tinta + '" opacity="0.85">' +
@@ -156,6 +206,8 @@ export function folha(d) {
     /* coluna destacável: KIT em cima, ALIMENTAÇÃO embaixo */
     '<line x1="' + (LARGURA - FAIXA) + '" y1="104" x2="' + (LARGURA - FAIXA) + '" y2="' + (ALTURA - 3) + '" ' +
       'stroke="#c9c9c9" stroke-width="2" stroke-dasharray="7 7"/>' +
+    (fundo ? '<rect x="' + (LARGURA - FAIXA) + '" y="104" width="' + (FAIXA - 3) + '" ' +
+             'height="' + (ALTURA - 107) + '" fill="#ffffff" opacity="0.82"/>' : '') +
     canhoto("KIT", 130, 250) +
     linhaPontilhada(410) +
     canhoto("ALIMENTAÇÃO", 430, 220) +

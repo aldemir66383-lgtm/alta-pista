@@ -6,7 +6,7 @@
 import * as api from "./api.js";
 import { QR } from "./qr.js";
 import { Pix } from "./pix.js";
-import { folha as folhaDePeito, paginaParaImprimir } from "./peito.js";
+import { folha as folhaDePeito, paginaParaImprimir, formatarNumero } from "./peito.js";
 
 /* =========================================================== utilidades == */
 
@@ -164,7 +164,11 @@ function dadosDaFolha(i, ev, rotulos) {
     camisa: respostaSobre(i.respostas, ["camisa", "camiseta", "tamanho", "blusa"], r),
     sigla: id.sigla || "",
     marca: id.nome_site || "",
-    cor: id.cor_acento || "#111111"
+    /* a cor do evento manda; sem ela, a do site */
+    cor: e.peito_cor || id.cor_acento || "#111111",
+    digitos: e.numero_digitos || 0,
+    logoUrl: e.peito_logo_url || "",
+    fundoUrl: e.peito_fundo_url || ""
   };
 }
 
@@ -745,7 +749,8 @@ async function telaMinhas() {
       '<dl style="margin-top:14px">' +
         (i.numero != null
           ? '<div class="linha-dados"><dt>Número de peito</dt><dd class="mono">' +
-            '<b style="font-size:1.5em">' + i.numero + '</b></dd></div>' : "") +
+            '<b style="font-size:1.5em">' +
+            formatarNumero(i.numero, (i.eventos || {}).numero_digitos) + '</b></dd></div>' : "") +
         '<div class="linha-dados"><dt>Código</dt><dd class="mono">' + esc(i.codigo) + '</dd></div>' +
         '<div class="linha-dados"><dt>Valor' + (i.lote_nome ? " · " + esc(i.lote_nome) : "") +
           '</dt><dd class="mono">' + (i.valor_centavos > 0 ? dinheiro(i.valor_centavos) : "Gratuito") + '</dd></div>' +
@@ -921,6 +926,7 @@ function telaEntrar() {
 /* ==================================================== tela: painel ====== */
 
 let edLotes = [], edPerguntas = [], edEventoId = null, edCapa = "";
+let edPeitoLogo = "", edPeitoFundo = "";
 
 async function telaPainel() {
   if (!estado.organizador) { torrar("Área restrita à organização"); return ir("eventos"); }
@@ -1073,7 +1079,8 @@ function tabelaInscritos(lista) {
           (i.observacao ? '<br><span class="contato">“' + esc(i.observacao) + '”</span>' : "") + '</td>' +
         '<td>' + esc(ev.nome || "—") + '</td>' +
         '<td class="mono"><b style="font-size:1.15em">' +
-          (i.numero == null ? "—" : i.numero) + '</b></td>' +
+          (i.numero == null ? "—"
+            : formatarNumero(i.numero, (i.eventos || {}).numero_digitos)) + '</b></td>' +
         '<td class="mono">' + esc(i.codigo) + '</td>' +
         '<td class="mono">' + (i.valor_centavos > 0 ? dinheiro(i.valor_centavos) : "—") + '</td>' +
         '<td><span class="tag ' + classeStatus(i.status) + '">' + rotuloStatus(i.status) + '</span></td>' +
@@ -1253,6 +1260,37 @@ const desenharPerguntas = () => {
   $("#lista-perguntas").innerHTML = edPerguntas.length ? edPerguntas.map(linhaPerguntaHTML).join("")
     : '<p class="mini-vazio">Nenhuma pergunta extra além de nome, nascimento, e-mail e telefone.</p>';
 };
+/**
+ * Prévia ao vivo do número de peito, com um corredor inventado. Redesenha
+ * a cada tecla, para o organizador ver a cor e os algarismos sem precisar
+ * salvar o evento e imprimir para descobrir que ficou torto.
+ */
+const desenharPreviaPeito = () => {
+  const alvo = $("#previa-peito");
+  if (!alvo) return;
+  const f = $("#form-evento");
+  const ler = n => (f && f.elements[n] ? f.elements[n].value : "");
+  const cor = String(ler("peito_cor") || "").trim();
+  alvo.innerHTML = folhaDePeito({
+    numero: 7,
+    digitos: parseInt(ler("numero_digitos"), 10) || 0,
+    nome: "Nome do participante",
+    codigo: "ABC-123",
+    evento: ler("nome") || "Nome do evento",
+    data: ler("data") ? dataLonga(ler("data")) : "",
+    local: [ler("cidade"), ler("uf")].filter(Boolean).join("/"),
+    distancia: String(ler("distancias") || "").split(",")[0].trim(),
+    camisa: "G",
+    sigla: (estado.identidade || {}).sigla || "",
+    marca: (estado.identidade || {}).nome_site || "",
+    cor: /^#[0-9a-fA-F]{6}$/.test(cor) ? cor : ((estado.identidade || {}).cor_acento || "#111111"),
+    logoUrl: edPeitoLogo,
+    fundoUrl: edPeitoFundo
+  });
+  const svg = alvo.querySelector("svg");
+  if (svg) { svg.style.width = "100%"; svg.style.height = "auto"; svg.style.background = "#fff"; }
+};
+
 const desenharCapa = () => {
   $("#previa-capa").innerHTML = edCapa
     ? '<img class="previa-capa" src="' + esc(edCapa) + '" alt="Prévia da capa">' +
@@ -1265,11 +1303,15 @@ function editorEvento(id) {
   const v = ev || {
     nome: "", descricao: "", edital: "", data: "", hora: "07:00", local: "",
     categoria: "Corrida de rua", cidade: "", uf: "", distancias: "", imagem_url: "",
-    vagas: 0, numero_inicial: 1, espera_ativa: true, inscricoes_abertas: true,
+    vagas: 0, numero_inicial: 1, numero_digitos: 4, peito_cor: "",
+    peito_logo_url: "", peito_fundo_url: "",
+    espera_ativa: true, inscricoes_abertas: true,
     publicado: false, destaque: false
   };
   edEventoId = id;
   edCapa = v.imagem_url || "";
+  edPeitoLogo = v.peito_logo_url || "";
+  edPeitoFundo = v.peito_fundo_url || "";
   edLotes = (ev ? (ev.lotes || []).slice().sort((a, b) => a.ordem - b.ordem) : [])
     .map(l => Object.assign({}, l));
   if (!edLotes.length) edLotes = [{ nome: "Lote único", preco_centavos: 0, vende_ate: "", quantidade: 0 }];
@@ -1317,6 +1359,27 @@ function editorEvento(id) {
         '<div id="previa-capa" style="margin-top:10px"></div>' +
       '</div>' +
 
+      '<div class="sub"><h4>Aparência do número de peito</h4>' +
+        '<p class="explica">É a folha que o corredor prende na camisa. ' +
+        'Deixe a cor em branco para usar a do site. A arte de fundo cobre a folha inteira ' +
+        'e recebe um véu claro por cima, para o número continuar legível de longe.</p>' +
+        '<div class="campos duas" style="margin-top:10px">' +
+          '<label>Algarismos <span class="dica">4 faz o corredor 7 virar 0007; 0 mostra o número cru</span>' +
+            '<input name="numero_digitos" type="number" min="0" max="6" step="1" value="' +
+            (v.numero_digitos == null ? 4 : v.numero_digitos) + '"></label>' +
+          '<label>Cor do evento <span class="dica">vazio = a cor do site</span>' +
+            '<input name="peito_cor" type="text" value="' + esc(v.peito_cor || "") + '" ' +
+            'placeholder="#FFE01B" class="mono" maxlength="7"></label>' +
+          '<label>Logotipo do evento<input type="file" id="arquivo-peito-logo" accept="image/*"></label>' +
+          '<label>Arte de fundo<input type="file" id="arquivo-peito-fundo" accept="image/*"></label>' +
+        '</div>' +
+        '<div class="acoes" style="margin-top:8px">' +
+          '<button type="button" class="btn fantasma pequeno" id="tirar-peito-logo">Remover logotipo</button> ' +
+          '<button type="button" class="btn fantasma pequeno" id="tirar-peito-fundo">Remover arte</button>' +
+        '</div>' +
+        '<div id="previa-peito" style="margin-top:12px;max-width:560px"></div>' +
+      '</div>' +
+
       '<div class="campos"><label>Resumo curto<textarea name="descricao" placeholder="Uma linha que aparece no cartão do evento">' +
         esc(v.descricao) + '</textarea></label></div>' +
       '<div class="campos"><label>Edital do evento ' +
@@ -1351,6 +1414,7 @@ function editorEvento(id) {
   desenharLotes();
   desenharPerguntas();
   desenharCapa();
+  desenharPreviaPeito();
   caixa.scrollIntoView({ behavior: "smooth", block: "nearest" });
 
   const sincronizar = e => {
@@ -1371,14 +1435,32 @@ function editorEvento(id) {
   };
   caixa.addEventListener("input", sincronizar);
   caixa.addEventListener("change", sincronizar);
+  caixa.addEventListener("input", desenharPreviaPeito);
+  caixa.addEventListener("change", desenharPreviaPeito);
 
   caixa.addEventListener("click", e => {
-    const b = e.target.closest("[data-del-lote],[data-del-pergunta],#tirar-capa");
+    const b = e.target.closest("[data-del-lote],[data-del-pergunta],#tirar-capa," +
+      "#tirar-peito-logo,#tirar-peito-fundo");
     if (!b) return;
     if (b.id === "tirar-capa") { edCapa = ""; return desenharCapa(); }
+    if (b.id === "tirar-peito-logo") { edPeitoLogo = ""; return desenharPreviaPeito(); }
+    if (b.id === "tirar-peito-fundo") { edPeitoFundo = ""; return desenharPreviaPeito(); }
     if (b.dataset.delLote != null) { edLotes.splice(+b.dataset.delLote, 1); desenharLotes(); }
     else { edPerguntas.splice(+b.dataset.delPergunta, 1); desenharPerguntas(); }
   });
+
+  const enviarImagemDoPeito = async (input, guardar) => {
+    const arq = input.files && input.files[0];
+    if (!arq) return;
+    if (arq.size > 5 * 1024 * 1024) { torrar("Imagem grande demais — use até 5 MB"); return; }
+    try { guardar(await api.enviarCapa(arq)); torrar("Imagem enviada"); }
+    catch (err) { torrar(mensagemDe(err)); }
+    desenharPreviaPeito();
+  };
+  $("#arquivo-peito-logo").addEventListener("change", e =>
+    enviarImagemDoPeito(e.target, u => { edPeitoLogo = u; }));
+  $("#arquivo-peito-fundo").addEventListener("change", e =>
+    enviarImagemDoPeito(e.target, u => { edPeitoFundo = u; }));
 
   $("#arquivo-capa").addEventListener("change", async e => {
     const arq = e.target.files && e.target.files[0];
@@ -1442,6 +1524,13 @@ function editorEvento(id) {
         hora: f.get("hora") || null,
         vagas: parseInt(f.get("vagas") || "0", 10) || 0,
         numero_inicial: Math.max(1, parseInt(f.get("numero_inicial") || "1", 10) || 1),
+        numero_digitos: Math.min(6, Math.max(0, parseInt(f.get("numero_digitos") || "0", 10) || 0)),
+        peito_cor: (() => {
+          const c = String(f.get("peito_cor") || "").trim();
+          return /^#[0-9a-fA-F]{6}$/.test(c) ? c.toUpperCase() : "";
+        })(),
+        peito_logo_url: edPeitoLogo,
+        peito_fundo_url: edPeitoFundo,
         espera_ativa: f.get("espera_ativa") === "on",
         destaque: f.get("destaque") === "on",
         descricao: String(f.get("descricao") || "").trim(),

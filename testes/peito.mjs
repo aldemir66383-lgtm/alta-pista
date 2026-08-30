@@ -7,7 +7,7 @@
 //   node testes/peito.mjs
 
 import jsQR from "jsqr";
-import { folha, paginaParaImprimir } from "../site/peito.js";
+import { folha, paginaParaImprimir, formatarNumero } from "../site/peito.js";
 import { QR } from "../site/qr.js";
 
 const verde = t => "\x1b[32m" + t + "\x1b[0m";
@@ -132,6 +132,63 @@ teste("o SVG é bem formado: cada tag abre e fecha", () => {
           (s.match(new RegExp("</" + tag + ">", "g")) || []).length,
           "abre e fecha <" + tag + ">");
   }
+});
+
+
+console.log("\nPersonalização por evento:\n");
+
+teste("os algarismos fixos preenchem com zeros à esquerda", () => {
+  igual(formatarNumero(7, 4), "0007", "7 com quatro algarismos");
+  igual(formatarNumero(1234, 4), "1234", "número que já tem o tamanho");
+  igual(formatarNumero(12345, 4), "12345", "número maior que o formato não é cortado");
+  igual(formatarNumero(7, 0), "7", "zero desliga o preenchimento");
+  igual(formatarNumero(7, null), "7", "sem escolha, número cru");
+  igual(formatarNumero(null, 4), "?", "sem número");
+});
+
+teste("o formato pedido aparece na folha e nos canhotos", () => {
+  const s = folha({ ...base, numero: 7, digitos: 4 });
+  igual((s.match(/>0007</g) || []).length, 3, "0007 deveria sair três vezes");
+  confere(!/>7</.test(s), "não deveria sobrar o número sem formato");
+});
+
+teste("mais de 6 algarismos é recusado em silêncio", () => {
+  igual(formatarNumero(7, 99).length, 6, "o limite é seis algarismos");
+});
+
+teste("a cor do evento substitui a do site", () => {
+  confere(folha({ ...base, numero: 7, cor: "#0055AA" }).includes('fill="#0055AA"'),
+    "a cor escolhida deveria pintar a faixa");
+});
+
+teste("a arte de fundo entra com véu por cima", () => {
+  const s = folha({ ...base, numero: 7, fundoUrl: "https://exemplo.com/arte.jpg" });
+  confere(s.includes("exemplo.com/arte.jpg"), "a arte não entrou");
+  confere(/opacity="0.74"/.test(s), "faltou o véu que mantém o número legível");
+  confere(/clipPath/.test(s), "a arte deveria ser recortada nos cantos da folha");
+});
+
+teste("o logotipo do evento ocupa o lugar da sigla", () => {
+  const s = folha({ ...base, numero: 7, logoUrl: "https://exemplo.com/logo.png" });
+  confere(s.includes("exemplo.com/logo.png"), "o logotipo não entrou");
+  confere(!s.includes(">AP<"), "com logotipo, a sigla não deveria aparecer");
+});
+
+teste("endereço de imagem perigoso é descartado", () => {
+  for (const mau of ["javascript:alert(1)", "data:text/html,<svg onload=x>", "  javascript:x"]) {
+    const s = folha({ ...base, numero: 7, fundoUrl: mau, logoUrl: mau });
+    confere(!s.includes("javascript:"), "BRECHA: passou " + mau);
+    confere(!s.includes("text/html"), "BRECHA: passou " + mau);
+  }
+});
+
+teste("cada folha usa identificadores próprios", () => {
+  const a = folha({ ...base, numero: 1, fundoUrl: "https://exemplo.com/a.jpg" });
+  const b = folha({ ...base, numero: 2, fundoUrl: "https://exemplo.com/a.jpg" });
+  const idA = (a.match(/id="folha-([a-z0-9]+)"/) || [])[1];
+  const idB = (b.match(/id="folha-([a-z0-9]+)"/) || [])[1];
+  confere(idA && idB && idA !== idB,
+    "duas folhas na mesma página com o mesmo id fariam o recorte de uma valer na outra");
 });
 
 console.log("\n" + (passou + falhou) + " testes · " + verde(passou + " passaram") +

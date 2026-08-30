@@ -155,7 +155,8 @@ export async function inscrever(dados) {
 }
 export async function minhasInscricoes() {
   return conferir(await sb.from("inscricoes")
-    .select("*, eventos(nome, slug, data, hora, local, cidade, uf, distancias)")
+    .select("*, eventos(nome, slug, data, hora, local, cidade, uf, distancias, "
+            + "numero_digitos, peito_cor, peito_logo_url, peito_fundo_url)")
     .order("criado_em", { ascending: false })) || [];
 }
 export async function cobranca(inscricaoId) {
@@ -249,7 +250,8 @@ export async function apagarEvento(id) {
 }
 export async function inscritosDoPainel() {
   return conferir(await sb.from("inscricoes")
-    .select("*, eventos(nome, slug, data, hora, local, cidade, uf, distancias)")
+    .select("*, eventos(nome, slug, data, hora, local, cidade, uf, distancias, "
+            + "numero_digitos, peito_cor, peito_logo_url, peito_fundo_url)")
     .order("criado_em", { ascending: false })) || [];
 }
 /* --------------------------------------------------------------- equipe -- */
