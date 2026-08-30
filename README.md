@@ -191,26 +191,36 @@ primeiros saem destacados em amarelo, e a página tem botão de imprimir.
 ## Testes
 
 ```bash
-node testes/seguranca.mjs
+npm install   # só na primeira vez
+npm test
 ```
 
-São duas baterias. A do **pagamento** () confere o gerador de
-Pix contra o vetor de referência do CRC-16, desmonta o código campo a campo para
-ver se bate com o padrão do Banco Central, e manda uma biblioteca independente
-ler de volta cada QR Code gerado. A da **segurança** ()
-roda contra o banco de verdade usando **só a chave pública** — exatamente o que
-um visitante mal-intencionado teria na mão. Cada teste responde à pergunta "o que
-dá para fazer sem ter conta?": ler a lista de inscritos, alterar a chave Pix, se
-promover a organizador, cancelar inscrição alheia. Todos devem ser recusados.
+São duas baterias.
 
-Não escreve nada no banco, então pode rodar a qualquer momento, inclusive com as
-inscrições abertas.
+A do **pagamento** (`testes/pix-e-qr.mjs`) confere o gerador de Pix contra o
+vetor de referência do CRC-16, desmonta o código campo a campo para ver se bate
+com o padrão do Banco Central — versão, moeda, país, a chave dentro do campo do
+arranjo, o valor com duas casas, o identificador da inscrição — e manda uma
+biblioteca independente ler de volta cada QR Code gerado. São os dois pedaços
+escritos do zero, sem biblioteca, e ficam entre o participante e o dinheiro.
 
-O mesmo teste roda sozinho pelo GitHub Actions (`.github/workflows/vigia.yml`) a
-cada alteração no código e **de dois em dois dias**. Essa visita periódica tem um
-segundo papel: o plano gratuito do Supabase pausa projetos com cerca de 7 dias de
-pouca atividade, e sem isso o site sairia do ar justamente entre o cartaz ser
-colado e as inscrições abrirem. É gratuito e ilimitado em repositório público.
+A da **segurança** (`testes/seguranca.mjs`) roda contra o banco de verdade
+usando **só a chave pública** — exatamente o que um visitante mal-intencionado
+teria na mão. Cada teste responde à pergunta "o que dá para fazer sem ter
+conta?": ler a lista de inscritos, alterar a chave Pix, se promover a
+organizador, cancelar inscrição alheia, apagar evento. Todos devem ser
+recusados. Foi essa bateria que encontrou a função `gerar_codigo` exposta,
+corrigida pelo `supabase/0006`.
+
+Nenhuma das duas escreve no banco, então dá para rodar a qualquer momento,
+inclusive com as inscrições abertas.
+
+As duas rodam sozinhas pelo GitHub Actions (`.github/workflows/vigia.yml`) a
+cada alteração no código e **de dois em dois dias**. Essa visita periódica tem
+um segundo papel: o plano gratuito do Supabase pausa projetos com cerca de sete
+dias de pouca atividade, e sem ela o site sairia do ar justamente entre o cartaz
+ser colado e as inscrições abrirem. O Actions é gratuito e sem limite de minutos
+em repositório público, então isso não custa nada.
 
 ## O que ainda é manual
 
