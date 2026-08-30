@@ -63,7 +63,7 @@ teste("o tamanho da camisa aparece no canhoto do kit", () => {
 teste("números de 1 a 5 dígitos cabem na folha", () => {
   for (const n of [1, 42, 137, 1234, 10500]) {
     const s = folha({ ...base, numero: n });
-    const corpo = Number((s.match(/font-size="(\d+)" font-weight="800" fill="#111111" letter-spacing/) || [])[1]);
+    const corpo = Number((s.match(/font-size="(\d+)" font-weight="800" fill="#0B1B2B" letter-spacing/) || [])[1]);
     confere(corpo > 0, "não achei o corpo da fonte para " + n);
     // largura aproximada do número: cada dígito ocupa cerca de 0,6 do corpo
     const largura = String(n).length * corpo * 0.62;
@@ -106,8 +106,8 @@ teste("cor inválida cai num padrão em vez de quebrar o desenho", () => {
 });
 
 teste("a cor do texto contrasta com a faixa", () => {
-  confere(folha({ ...base, numero: 7, cor: "#FFE01B" }).includes('fill="#111111"'),
-    "sobre amarelo claro o texto deveria ser escuro");
+  confere(folha({ ...base, numero: 7, cor: "#C6F24E" }).includes('fill="#0B1B2B"'),
+    "sobre lima claro o texto deveria ser escuro");
   confere(folha({ ...base, numero: 7, cor: "#101820" }).includes('fill="#ffffff"'),
     "sobre azul escuro o texto deveria ser claro");
 });

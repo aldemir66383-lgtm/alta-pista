@@ -197,7 +197,7 @@ function imprimirPeitos(inscricoes, titulo) {
 
 const IDENTIDADE_PADRAO = {
   organizacao: "", sigla: "B", nome_site: "Balcão",
-  subtitulo: "Inscrições esportivas", cor_acento: "#FFE01B",
+  subtitulo: "Inscrições esportivas", cor_acento: "#C6F24E",
   sobre: "", contato: "", instagram: "", whatsapp: "", logo_url: ""
 };
 
@@ -230,9 +230,9 @@ function aplicarIdentidade(id) {
   estado.organizacao = i.organizacao || "";
 
   const raiz = document.documentElement.style;
-  raiz.setProperty("--amarelo", i.cor_acento);
-  raiz.setProperty("--sobre-amarelo", tintaSobre(i.cor_acento));
-  raiz.setProperty("--amarelo-escuro", escurecer(i.cor_acento, 0.12));
+  raiz.setProperty("--acento", i.cor_acento);
+  raiz.setProperty("--sobre-acento", tintaSobre(i.cor_acento));
+  raiz.setProperty("--acento-escuro", escurecer(i.cor_acento, 0.12));
 
   const selo = $(".marca .selo");
   selo.innerHTML = i.logo_url
@@ -962,9 +962,9 @@ async function telaPainel() {
       campo("subtitulo", "Linha de apoio", config.subtitulo, "usada quando não há nome da organização") +
       '<label>Cor de acento <span class="dica">botões, selos e destaques</span>' +
         '<span style="display:flex;gap:8px;align-items:center">' +
-        '<input type="color" name="cor_acento" value="' + esc(config.cor_acento || "#FFE01B") +
+        '<input type="color" name="cor_acento" value="' + esc(config.cor_acento || "#C6F24E") +
           '" style="width:52px;height:40px;padding:3px" id="cor-acento">' +
-        '<input name="cor_acento_texto" class="mono" value="' + esc(config.cor_acento || "#FFE01B") +
+        '<input name="cor_acento_texto" class="mono" value="' + esc(config.cor_acento || "#C6F24E") +
           '" maxlength="7" id="cor-acento-texto"></span></label>' +
       campo("contato", "Contato no rodapé", config.contato, "e-mail ou telefone") +
       campo("whatsapp", "WhatsApp", config.whatsapp, "com DDD, só números") +
@@ -1132,14 +1132,14 @@ function ligarPainel() {
   const valida = v => /^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/.test(v);
   cor.addEventListener("input", () => {
     corTexto.value = cor.value.toUpperCase();
-    document.documentElement.style.setProperty("--amarelo", cor.value);
-    document.documentElement.style.setProperty("--sobre-amarelo", tintaSobre(cor.value));
+    document.documentElement.style.setProperty("--acento", cor.value);
+    document.documentElement.style.setProperty("--sobre-acento", tintaSobre(cor.value));
   });
   corTexto.addEventListener("input", () => {
     if (!valida(corTexto.value)) return;
     cor.value = corTexto.value;
-    document.documentElement.style.setProperty("--amarelo", corTexto.value);
-    document.documentElement.style.setProperty("--sobre-amarelo", tintaSobre(corTexto.value));
+    document.documentElement.style.setProperty("--acento", corTexto.value);
+    document.documentElement.style.setProperty("--sobre-acento", tintaSobre(corTexto.value));
   });
 
   $("#form-identidade").addEventListener("submit", async e => {
@@ -1295,7 +1295,7 @@ const desenharCapa = () => {
   $("#previa-capa").innerHTML = edCapa
     ? '<img class="previa-capa" src="' + esc(edCapa) + '" alt="Prévia da capa">' +
       '<div class="acoes" style="margin-top:8px"><button type="button" class="btn perigo pequeno" id="tirar-capa">Remover capa</button></div>'
-    : '<p class="mini-vazio">Sem capa: o cartão mostra as iniciais do evento sobre um fundo grafite.</p>';
+    : '<p class="mini-vazio">Sem capa: o cartão mostra as iniciais do evento sobre um fundo azul-noite.</p>';
 };
 
 function editorEvento(id) {
@@ -1369,7 +1369,7 @@ function editorEvento(id) {
             (v.numero_digitos == null ? 4 : v.numero_digitos) + '"></label>' +
           '<label>Cor do evento <span class="dica">vazio = a cor do site</span>' +
             '<input name="peito_cor" type="text" value="' + esc(v.peito_cor || "") + '" ' +
-            'placeholder="#FFE01B" class="mono" maxlength="7"></label>' +
+            'placeholder="#C6F24E" class="mono" maxlength="7"></label>' +
           '<label>Logotipo do evento<input type="file" id="arquivo-peito-logo" accept="image/*"></label>' +
           '<label>Arte de fundo<input type="file" id="arquivo-peito-fundo" accept="image/*"></label>' +
         '</div>' +

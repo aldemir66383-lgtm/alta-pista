@@ -21,14 +21,14 @@ const esc = t => String(t == null ? "" : t)
 
 /** Preto ou branco, o que tiver mais contraste sobre a cor de fundo. */
 function tintaSobre(hex) {
-  const h = String(hex || "#111111").replace("#", "");
-  if (h.length !== 6) return "#111111";
+  const h = String(hex || "#0B1B2B").replace("#", "");
+  if (h.length !== 6) return "#0B1B2B";
   const canal = i => {
     const v = parseInt(h.slice(i, i + 2), 16) / 255;
     return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
   };
   const lum = 0.2126 * canal(0) + 0.7152 * canal(2) + 0.0722 * canal(4);
-  return lum > 0.45 ? "#111111" : "#ffffff";
+  return lum > 0.45 ? "#0B1B2B" : "#ffffff";
 }
 
 /**
@@ -111,7 +111,7 @@ function qrEmbutido(codigo, x, y, lado) {
  *   fundoUrl    arte pronta cobrindo a folha, atrás do número
  */
 export function folha(d) {
-  const cor   = /^#[0-9a-fA-F]{6}$/.test(d.cor || "") ? d.cor : "#111111";
+  const cor   = /^#[0-9a-fA-F]{6}$/.test(d.cor || "") ? d.cor : "#0B1B2B";
   const tinta = tintaSobre(cor);
   const num   = formatarNumero(d.numero, d.digitos);
   const meio  = (LARGURA - FAIXA) / 2;
@@ -125,10 +125,10 @@ export function folha(d) {
         'font-size="' + (titulo.length > 6 ? 16 : 22) + '" font-weight="700" ' +
         'letter-spacing="' + (titulo.length > 6 ? 1.5 : 3) + '" fill="#666666">' + esc(titulo) + '</text>' +
       '<text x="' + (LARGURA - FAIXA / 2) + '" y="' + (y + altura / 2 + 34) + '" text-anchor="middle" ' +
-        'font-size="' + corpoDoCanhoto(num) + '" font-weight="800" fill="#111111">' + esc(num) + '</text>' +
+        'font-size="' + corpoDoCanhoto(num) + '" font-weight="800" fill="#0B1B2B">' + esc(num) + '</text>' +
       (titulo === "KIT" && d.camisa
         ? '<text x="' + (LARGURA - FAIXA / 2) + '" y="' + (y + altura - 26) + '" text-anchor="middle" ' +
-          'font-size="30" font-weight="700" fill="#111111">camisa ' + esc(d.camisa) + '</text>'
+          'font-size="30" font-weight="700" fill="#0B1B2B">camisa ' + esc(d.camisa) + '</text>'
         : '') +
     '</g>';
 
@@ -184,7 +184,7 @@ export function folha(d) {
 
     /* o número, o que se enxerga de longe */
     '<text x="' + meio + '" y="' + (ALTURA / 2 + 78) + '" text-anchor="middle" ' +
-      'font-size="' + corpoDoNumero(num) + '" font-weight="800" fill="#111111" ' +
+      'font-size="' + corpoDoNumero(num) + '" font-weight="800" fill="#0B1B2B" ' +
       'letter-spacing="-6">' + esc(num) + '</text>' +
 
     /* nome e distância ficam à direita do QR, para não encavalar nele */

@@ -9,11 +9,11 @@
 import { writeFileSync, mkdirSync } from "node:fs";
 import { deflateSync } from "node:zlib";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const AQUI    = dirname(fileURLToPath(import.meta.url));
-const AMARELO = "#FFE01B";
-const GRAFITE = "#141414";
+const ACENTO  = "#C6F24E";
+const BASE    = "#0B1B2B";
 const BRANCO  = "#FFFFFF";
 
 /* ====================================================== o desenho ==== */
@@ -34,7 +34,7 @@ const TRAVESSAO = [[22, 57], [52, 57], [52, 69], [16, 69]];
 const BOJO      = { x0: 63, x1: 76, y0: 21, y1: 53, cx: 76, cy: 37, r: 16 };
 const OLHO      = { x0: 66, x1: 75, y0: 32, y1: 42, cx: 75, cy: 37, r: 5 };
 
-function monogramaSVG(tinta) {
+export function monogramaSVG(tinta) {
   const pol = p => p.map((c, i) => (i ? "L" : "M") + c[0] + "," + c[1]).join(" ") + " Z";
   return `<g transform="translate(${CENTRO},${CENTRO}) scale(${ESCALA}) translate(${-CENTRO},${-CENTRO})">` +
     `<g transform="translate(${DESLOCA},0) skewX(-7)">` +
@@ -63,7 +63,7 @@ const dentroDaMeiaLua = (c, x, y) =>
   x > c.x1 && (x - c.cx) ** 2 + (y - c.cy) ** 2 <= c.r ** 2;
 
 /** Verdadeiro se o ponto (x,y), já na caixa de 100 por 100, é tinta. */
-function ehTinta(xc, yc) {
+export function ehTinta(xc, yc) {
   // desfaz a escala e depois a inclinação: o desenho é inclinado e
   // encolhido, a pergunta não precisa ser
   const x = (xc - CENTRO) / ESCALA + CENTRO;
@@ -85,7 +85,7 @@ function ehTinta(xc, yc) {
 }
 
 /** Verdadeiro se o ponto está dentro do selo (quadrado de cantos redondos). */
-function dentroDoSelo(x, y, raio, redondo) {
+export function dentroDoSelo(x, y, raio, redondo) {
   if (redondo) return (x - 50) ** 2 + (y - 50) ** 2 <= 50 ** 2;
   const dx = Math.max(raio - x, 0, x - (100 - raio));
   const dy = Math.max(raio - y, 0, y - (100 - raio));
@@ -119,7 +119,7 @@ function bloco(tipo, dados) {
 }
 
 /** PNG de 8 bits com canal alfa, a partir de uma função (x,y) -> [r,g,b,a]. */
-function png(lado, cor) {
+export function png(lado, cor) {
   const linhas = [];
   for (let y = 0; y < lado; y++) {
     const linha = Buffer.alloc(1 + lado * 4);
@@ -141,13 +141,13 @@ function png(lado, cor) {
   ]);
 }
 
-const hexPara = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+export const hexPara = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 
 /**
  * Desenha o selo em PNG. Cada pixel é olhado em 16 pontos (4 por 4) e a
  * média vira a cor: é assim que a borda sai lisa em vez de serrilhada.
  */
-function seloPNG(lado, fundo, tinta, { redondo = false, raio = 22 } = {}) {
+export function seloPNG(lado, fundo, tinta, { redondo = false, raio = 22 } = {}) {
   const AMOSTRAS = 4;
   const cFundo = fundo ? hexPara(fundo) : null;
   const cTinta = hexPara(tinta);
@@ -178,7 +178,7 @@ function seloPNG(lado, fundo, tinta, { redondo = false, raio = 22 } = {}) {
 
 /* ================================================== os arquivos ====== */
 
-function seloSVG(fundo, tinta, { redondo = false, raio = 22 } = {}) {
+export function seloSVG(fundo, tinta, { redondo = false, raio = 22 } = {}) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" ` +
     `role="img" aria-label="Alta Pista">` +
     (fundo
@@ -189,11 +189,11 @@ function seloSVG(fundo, tinta, { redondo = false, raio = 22 } = {}) {
     monogramaSVG(tinta) + `</svg>`;
 }
 
-function assinaturaSVG(tintaTexto) {
+export function assinaturaSVG(tintaTexto) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 110" ` +
     `role="img" aria-label="Alta Pista">` +
-    `<g transform="translate(5,5)"><rect width="100" height="100" rx="22" fill="${AMARELO}"/>` +
-    monogramaSVG(GRAFITE) + `</g>` +
+    `<g transform="translate(5,5)"><rect width="100" height="100" rx="22" fill="${ACENTO}"/>` +
+    monogramaSVG(BASE) + `</g>` +
     `<text x="124" y="58" font-family="Titillium Web, Segoe UI, Helvetica, Arial, sans-serif" ` +
       `font-size="42" font-weight="900" letter-spacing="-0.5" fill="${tintaTexto}">ALTA PISTA</text>` +
     `<text x="126" y="84" font-family="Titillium Web, Segoe UI, Helvetica, Arial, sans-serif" ` +
@@ -201,28 +201,32 @@ function assinaturaSVG(tintaTexto) {
       `INSCRIÇÕES ESPORTIVAS</text></svg>`;
 }
 
-mkdirSync(AQUI, { recursive: true });
-const gravar = (nome, dados) => {
-  writeFileSync(join(AQUI, nome), dados);
-  return nome;
-};
+/* So escreve os arquivos quando chamado direto pela linha de comando.
+   Assim outro script pode importar o desenho sem gerar nada. */
+if (pathToFileURL(process.argv[1] || "").href === import.meta.url) {
+  mkdirSync(AQUI, { recursive: true });
+  const gravar = (nome, dados) => {
+    writeFileSync(join(AQUI, nome), dados);
+    return nome;
+  };
 
-const feitos = [];
+  const feitos = [];
 
-feitos.push(gravar("selo-amarelo.svg",  seloSVG(AMARELO, GRAFITE) + "\n"));
-feitos.push(gravar("selo-grafite.svg",  seloSVG(GRAFITE, AMARELO) + "\n"));
-feitos.push(gravar("selo-preto.svg",    seloSVG("", GRAFITE) + "\n"));
-feitos.push(gravar("selo-branco.svg",   seloSVG("", BRANCO) + "\n"));
-feitos.push(gravar("selo-redondo.svg",  seloSVG(AMARELO, GRAFITE, { redondo: true }) + "\n"));
-feitos.push(gravar("assinatura-clara.svg",  assinaturaSVG(GRAFITE) + "\n"));
-feitos.push(gravar("assinatura-escura.svg", assinaturaSVG(BRANCO) + "\n"));
+  feitos.push(gravar("selo-lima.svg",  seloSVG(ACENTO, BASE) + "\n"));
+  feitos.push(gravar("selo-base.svg",  seloSVG(BASE, ACENTO) + "\n"));
+  feitos.push(gravar("selo-preto.svg",    seloSVG("", BASE) + "\n"));
+  feitos.push(gravar("selo-branco.svg",   seloSVG("", BRANCO) + "\n"));
+  feitos.push(gravar("selo-redondo.svg",  seloSVG(ACENTO, BASE, { redondo: true }) + "\n"));
+  feitos.push(gravar("assinatura-clara.svg",  assinaturaSVG(BASE) + "\n"));
+  feitos.push(gravar("assinatura-escura.svg", assinaturaSVG(BRANCO) + "\n"));
 
-for (const lado of [512, 256, 128, 64, 32]) {
-  feitos.push(gravar(`selo-amarelo-${lado}.png`, seloPNG(lado, AMARELO, GRAFITE)));
+  for (const lado of [512, 256, 128, 64, 32]) {
+    feitos.push(gravar(`selo-lima-${lado}.png`, seloPNG(lado, ACENTO, BASE)));
+  }
+  feitos.push(gravar("selo-redondo-512.png", seloPNG(512, ACENTO, BASE, { redondo: true })));
+  feitos.push(gravar("selo-base-512.png", seloPNG(512, BASE, ACENTO)));
+  feitos.push(gravar("selo-transparente-512.png", seloPNG(512, "", BASE)));
+
+  console.log("marca: " + feitos.length + " arquivos");
+  console.log(feitos.join("\n"));
 }
-feitos.push(gravar("selo-redondo-512.png", seloPNG(512, AMARELO, GRAFITE, { redondo: true })));
-feitos.push(gravar("selo-grafite-512.png", seloPNG(512, GRAFITE, AMARELO)));
-feitos.push(gravar("selo-transparente-512.png", seloPNG(512, "", GRAFITE)));
-
-console.log("marca: " + feitos.length + " arquivos");
-console.log(feitos.join("\n"));
