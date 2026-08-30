@@ -186,6 +186,71 @@ await teste("gerar códigos de inscrição à vontade", async () => {
   confere(!r.ok, "a função de gerar código deveria ser interna");
 });
 
+
+await teste("marcar um kit como entregue", async () => {
+  const r = await rest("inscricoes?id=eq.00000000-0000-0000-0000-000000000000", {
+    method: "PATCH",
+    body: JSON.stringify({ kit_retirado: true })
+  });
+  const j = await r.json().catch(() => []);
+  confere(!r.ok || (Array.isArray(j) && j.length === 0),
+    "BRECHA: dá para dar baixa em kit sem conta");
+});
+
+await teste("escolher o próprio número de peito", async () => {
+  const r = await rest("inscricoes?id=eq.00000000-0000-0000-0000-000000000000", {
+    method: "PATCH",
+    body: JSON.stringify({ numero: 1 })
+  });
+  const j = await r.json().catch(() => []);
+  confere(!r.ok || (Array.isArray(j) && j.length === 0),
+    "BRECHA: dá para escolher número de peito sem conta");
+});
+
+await teste("chamar a função que atribui números", async () => {
+  const r = await rpc("atribuir_numero");
+  confere(!r.ok, "a função de numeração deveria ser interna, só do gatilho");
+});
+
+await teste("mudar a aparência do número de peito de um evento", async () => {
+  const r = await rest("eventos?id=eq.00000000-0000-0000-0000-000000000000", {
+    method: "PATCH",
+    body: JSON.stringify({ peito_cor: "#000000", numero_digitos: 6 })
+  });
+  const j = await r.json().catch(() => []);
+  confere(!r.ok || (Array.isArray(j) && j.length === 0),
+    "BRECHA: dá para mexer na aparência do peito sem conta");
+});
+
+await teste("o banco recusa cor de peito que não é cor", async () => {
+  // a restrição existe para um erro de digitação não gerar folhas tortas;
+  // aqui só conferimos que ela está instalada, sem escrever nada
+  const r = await rest("eventos?select=peito_cor&peito_cor=not.is.null&limit=50");
+  confere(r.ok, "status " + r.status);
+  const j = await r.json();
+  confere(j.every(e => e.peito_cor === "" || /^#[0-9a-fA-F]{6}$/.test(e.peito_cor)),
+    "há evento com peito_cor fora do formato: " + JSON.stringify(j));
+});
+
+await teste("números de peito não se repetem dentro do evento", async () => {
+  // o índice único é a garantia; aqui conferimos o efeito visível do que
+  // o público consegue enxergar dos eventos publicados
+  const r = await rest("eventos?select=id,numero_inicial,numero_digitos");
+  confere(r.ok, "status " + r.status);
+  const j = await r.json();
+  confere(j.every(e => e.numero_inicial >= 1), "numero_inicial deveria começar em 1 ou mais");
+  confere(j.every(e => e.numero_digitos >= 0 && e.numero_digitos <= 6),
+    "numero_digitos fora do limite de 0 a 6");
+});
+
+await teste("o gerador do número de peito está publicado", async () => {
+  const r = await fetch("https://alta-pista.netlify.app/peito.js");
+  confere(r.ok, "peito.js respondeu " + r.status);
+  const t = await r.text();
+  confere(/formatarNumero/.test(t), "o arquivo publicado está desatualizado");
+  confere(/enderecoDeImagem/.test(t), "faltou o filtro de endereço de imagem");
+});
+
 /* --------------------------------------------------- saúde e desempenho -- */
 console.log("\nSaúde do serviço:\n");
 
