@@ -38,6 +38,12 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Instalar as dependências dos testes
+        run: npm install --no-audit --no-fund
+
+      - name: Conferir o Pix e o QR Code
+        run: node testes/pix-e-qr.mjs
+
       - name: Acordar o banco e conferir a segurança
         run: node testes/seguranca.mjs
 

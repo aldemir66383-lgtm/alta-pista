@@ -194,7 +194,11 @@ primeiros saem destacados em amarelo, e a página tem botão de imprimir.
 node testes/seguranca.mjs
 ```
 
-Roda contra o banco de verdade usando **só a chave pública** — exatamente o que
+São duas baterias. A do **pagamento** () confere o gerador de
+Pix contra o vetor de referência do CRC-16, desmonta o código campo a campo para
+ver se bate com o padrão do Banco Central, e manda uma biblioteca independente
+ler de volta cada QR Code gerado. A da **segurança** ()
+roda contra o banco de verdade usando **só a chave pública** — exatamente o que
 um visitante mal-intencionado teria na mão. Cada teste responde à pergunta "o que
 dá para fazer sem ter conta?": ler a lista de inscritos, alterar a chave Pix, se
 promover a organizador, cancelar inscrição alheia. Todos devem ser recusados.
@@ -238,6 +242,7 @@ conta.
 
 ```
 configurar.mjs                                  escreve o config.js e testa a instalação
+testes/pix-e-qr.mjs                             confere o código Pix e o QR Code
 testes/seguranca.mjs                            bateria de segurança, roda sem navegador
 .github/workflows/vigia.yml                     testes automáticos e antipausa do banco
 supabase/0000_tudo.sql                          os três arquivos abaixo juntos, para colar de uma vez

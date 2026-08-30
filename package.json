@@ -1,0 +1,17 @@
+{
+  "name": "alta-pista",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Inscricoes e pagamento por Pix para corridas e eventos",
+  "scripts": {
+    "test": "node testes/pix-e-qr.mjs && node testes/seguranca.mjs",
+    "test:pagamento": "node testes/pix-e-qr.mjs",
+    "test:seguranca": "node testes/seguranca.mjs",
+    "qr": "node gerar-qr.mjs",
+    "servir": "npx --yes serve site"
+  },
+  "devDependencies": {
+    "jsqr": "^1.4.0"
+  }
+}
