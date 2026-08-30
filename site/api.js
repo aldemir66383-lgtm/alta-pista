@@ -209,24 +209,38 @@ export async function salvarEvento(evento) {
   return salvo;
 }
 
+/**
+ * Grava a lista de filhos (lotes ou perguntas) em quatro idas ao banco, não
+ * uma por linha. Antes, um evento com 2 lotes e 6 perguntas custava cerca de
+ * onze chamadas em sequência e o salvamento demorava visivelmente.
+ *
+ * As linhas que já existem vão juntas num upsert; as novas, juntas num insert;
+ * e o que o organizador tirou da tela sai num delete só.
+ */
 async function sincronizarFilhos(tabela, eventoId, lista, mapear) {
   const existentes = conferir(
     await sb.from(tabela).select("id").eq("evento_id", eventoId)
   ) || [];
-  const mantidos = new Set();
 
-  for (let i = 0; i < lista.length; i++) {
-    const linha = mapear(lista[i], i);
-    if (lista[i].id) {
-      mantidos.add(lista[i].id);
-      conferir(await sb.from(tabela).update(linha).eq("id", lista[i].id).select().single());
-    } else {
-      const criado = conferir(await sb.from(tabela).insert(linha).select().single());
-      mantidos.add(criado.id);
-      lista[i].id = criado.id;
-    }
+  const paraAtualizar = [];
+  const paraCriar = [];
+  const posicaoDosNovos = [];
+  lista.forEach((item, i) => {
+    const linha = mapear(item, i);
+    if (item.id) paraAtualizar.push({ ...linha, id: item.id });
+    else { paraCriar.push(linha); posicaoDosNovos.push(i); }
+  });
+
+  if (paraAtualizar.length) {
+    conferir(await sb.from(tabela).upsert(paraAtualizar, { onConflict: "id" }));
+  }
+  if (paraCriar.length) {
+    const criados = conferir(await sb.from(tabela).insert(paraCriar).select("id")) || [];
+    // o Postgres devolve na mesma ordem em que enviamos
+    criados.forEach((c, k) => { lista[posicaoDosNovos[k]].id = c.id; });
   }
 
+  const mantidos = new Set(lista.map(x => x.id).filter(Boolean));
   const remover = existentes.filter(e => !mantidos.has(e.id)).map(e => e.id);
   if (remover.length) conferir(await sb.from(tabela).delete().in("id", remover));
 }

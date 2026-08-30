@@ -188,6 +188,26 @@ primeiros saem destacados em amarelo, e a página tem botão de imprimir.
 > inscritos, que continua trancada. Se algum participante pedir para não
 > aparecer, é só não incluir a linha dele na colagem.
 
+## Testes
+
+```bash
+node testes/seguranca.mjs
+```
+
+Roda contra o banco de verdade usando **só a chave pública** — exatamente o que
+um visitante mal-intencionado teria na mão. Cada teste responde à pergunta "o que
+dá para fazer sem ter conta?": ler a lista de inscritos, alterar a chave Pix, se
+promover a organizador, cancelar inscrição alheia. Todos devem ser recusados.
+
+Não escreve nada no banco, então pode rodar a qualquer momento, inclusive com as
+inscrições abertas.
+
+O mesmo teste roda sozinho pelo GitHub Actions (`.github/workflows/vigia.yml`) a
+cada alteração no código e **de dois em dois dias**. Essa visita periódica tem um
+segundo papel: o plano gratuito do Supabase pausa projetos com cerca de 7 dias de
+pouca atividade, e sem isso o site sairia do ar justamente entre o cartaz ser
+colado e as inscrições abrirem. É gratuito e ilimitado em repositório público.
+
 ## O que ainda é manual
 
 A confirmação do pagamento. O Pix gerado é o padrão do Banco Central e cai
@@ -218,10 +238,14 @@ conta.
 
 ```
 configurar.mjs                                  escreve o config.js e testa a instalação
+testes/seguranca.mjs                            bateria de segurança, roda sem navegador
+.github/workflows/vigia.yml                     testes automáticos e antipausa do banco
 supabase/0000_tudo.sql                          os três arquivos abaixo juntos, para colar de uma vez
 supabase/0001_esquema.sql                       tabelas, políticas de segurança e regras
 supabase/0002_capas_categorias_resultados.sql   capas, modalidade, destaque e resultados
 supabase/0003_identidade.sql                    marca editável: iniciais, nome, cor, rodapé
+supabase/0005_equipe.sql                        dar e tirar acesso ao painel pelo site
+supabase/0006_fechar_funcoes_internas.sql       tira as funções internas do alcance público
 site/index.html                                 estrutura da página
 site/estilo.css                                 identidade visual (claro e escuro)
 site/app.js                                     telas e interações

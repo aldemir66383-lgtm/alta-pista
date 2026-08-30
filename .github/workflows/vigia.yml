@@ -1,0 +1,48 @@
+# Vigia do Alta Pista
+#
+# Faz duas coisas, de graça, sem servidor nenhum:
+#
+# 1. MANTÉM O BANCO ACORDADO. O plano gratuito do Supabase pausa projetos com
+#    cerca de 7 dias de pouca atividade. Como as inscrições podem abrir semanas
+#    depois do cadastro, o site ficaria fora do ar justamente quando alguém
+#    escaneasse o QR do cartaz. Uma visita a cada dois dias evita isso.
+#
+# 2. RODA A BATERIA DE SEGURANÇA. A cada visita, e a cada alteração no código,
+#    confere que ninguém sem conta consegue ler inscrições, mexer na chave Pix
+#    ou se promover a organizador. Se alguma brecha aparecer, a execução falha
+#    e o GitHub avisa por e-mail.
+#
+# O Actions é gratuito e sem limite de minutos em repositório público.
+
+name: Vigia
+
+on:
+  schedule:
+    # de dois em dois dias, às 12h UTC (9h no horário de Brasília)
+    - cron: "0 12 */2 * *"
+  push:
+    branches: [main]
+  workflow_dispatch:   # permite rodar na mão pelo botão "Run workflow"
+
+jobs:
+  vigiar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Pegar o código
+        uses: actions/checkout@v4
+
+      - name: Preparar o Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Acordar o banco e conferir a segurança
+        run: node testes/seguranca.mjs
+
+      - name: Conferir que o site publicado responde
+        run: |
+          codigo=$(curl -s -o /dev/null -w "%{http_code}" https://alta-pista.netlify.app/)
+          echo "site respondeu $codigo"
+          test "$codigo" = "200"
