@@ -155,7 +155,7 @@ export async function inscrever(dados) {
 }
 export async function minhasInscricoes() {
   return conferir(await sb.from("inscricoes")
-    .select("*, eventos(nome, slug, data, hora, local)")
+    .select("*, eventos(nome, slug, data, hora, local, cidade, uf, distancias)")
     .order("criado_em", { ascending: false })) || [];
 }
 export async function cobranca(inscricaoId) {
@@ -249,7 +249,7 @@ export async function apagarEvento(id) {
 }
 export async function inscritosDoPainel() {
   return conferir(await sb.from("inscricoes")
-    .select("*, eventos(nome, slug)")
+    .select("*, eventos(nome, slug, data, hora, local, cidade, uf, distancias)")
     .order("criado_em", { ascending: false })) || [];
 }
 /* --------------------------------------------------------------- equipe -- */
@@ -312,6 +312,16 @@ export async function enviarCapa(arquivo) {
     .upload(caminho, arquivo, { cacheControl: "31536000", upsert: false });
   if (error) throw new Error(traduzir(error));
   return sb.storage.from("capas").getPublicUrl(caminho).data.publicUrl;
+}
+
+/**
+ * Marca (ou desmarca) a entrega do kit. Só quem está no Painel consegue:
+ * a política de escrita da tabela exige ser organizador.
+ */
+export async function definirKit(id, retirado) {
+  return conferir(await sb.from("inscricoes")
+    .update({ kit_retirado: !!retirado, kit_retirado_em: retirado ? new Date().toISOString() : null })
+    .eq("id", id).select().single());
 }
 
 export async function definirStatus(id, status) {

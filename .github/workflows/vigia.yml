@@ -44,6 +44,9 @@ jobs:
       - name: Conferir o Pix e o QR Code
         run: node testes/pix-e-qr.mjs
 
+      - name: Conferir o número de peito
+        run: node testes/peito.mjs
+
       - name: Acordar o banco e conferir a segurança
         run: node testes/seguranca.mjs
 

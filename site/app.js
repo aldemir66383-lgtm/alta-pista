@@ -6,6 +6,7 @@
 import * as api from "./api.js";
 import { QR } from "./qr.js";
 import { Pix } from "./pix.js";
+import { folha as folhaDePeito, paginaParaImprimir } from "./peito.js";
 
 /* =========================================================== utilidades == */
 
@@ -108,6 +109,83 @@ function vagasRestantes(ev) {
   return Math.max(0, ev.vagas - (ev.ocupadas || 0));
 }
 const semVaga = ev => vagasRestantes(ev) === 0 || !loteAtivo(ev);
+
+
+/* ------------------------------------------------- número de peito --- */
+
+/**
+ * As respostas do formulário são guardadas com o id da pergunta como chave,
+ * não com o rótulo. Este mapa devolve o rótulo de cada id, juntando o que
+ * estiver carregado — os eventos do Painel, se for o organizador, e os
+ * eventos públicos, se for o participante.
+ */
+function rotulosDasPerguntas() {
+  const mapa = {};
+  const fontes = [estado.painel.eventos, estado.eventos, [estado.evento]];
+  for (const lista of fontes) {
+    for (const ev of (lista || [])) {
+      for (const pg of ((ev || {}).perguntas || [])) {
+        if (pg && pg.id) mapa[pg.id] = String(pg.rotulo || "");
+      }
+    }
+  }
+  return mapa;
+}
+
+/**
+ * Procura, nas respostas do formulário, o campo cujo rótulo fala de uma
+ * coisa. Serve para achar o tamanho da camisa e o percurso escolhido sem
+ * exigir que o organizador use um nome exato de campo.
+ */
+function respostaSobre(respostas, palavras, rotulos) {
+  for (const [chave, valor] of Object.entries(respostas || {})) {
+    const texto = String(valor == null ? "" : valor).trim();
+    if (!texto) continue;
+    const r = String((rotulos || {})[chave] || chave).toLowerCase();
+    if (palavras.some(pl => r.includes(pl))) return texto;
+  }
+  return "";
+}
+
+/** Reúne inscrição, evento e identidade no formato que o peito.js espera. */
+function dadosDaFolha(i, ev, rotulos) {
+  const e = ev || i.eventos || {};
+  const id = estado.identidade || {};
+  const r = rotulos || rotulosDasPerguntas();
+  return {
+    numero: i.numero,
+    nome: i.participante_nome,
+    codigo: i.codigo,
+    evento: e.nome || "",
+    data: e.data ? dataLonga(e.data) : "",
+    local: e.cidade ? e.cidade + (e.uf ? "/" + e.uf : "") : (e.local || ""),
+    distancia: respostaSobre(i.respostas, ["percurso", "distância", "distancia", "prova", "km"], r) ||
+               String(e.distancias || "").split(",")[0].trim(),
+    camisa: respostaSobre(i.respostas, ["camisa", "camiseta", "tamanho", "blusa"], r),
+    sigla: id.sigla || "",
+    marca: id.nome_site || "",
+    cor: id.cor_acento || "#111111"
+  };
+}
+
+/** Abre uma janela com as folhas prontas e chama a impressão. */
+function imprimirPeitos(inscricoes, titulo) {
+  const validas = inscricoes.filter(i => i.numero != null);
+  if (!validas.length) {
+    torrar("Nenhuma inscrição paga com número ainda.");
+    return;
+  }
+  const rotulos = rotulosDasPerguntas();
+  const html = paginaParaImprimir(
+    validas.map(i => folhaDePeito(dadosDaFolha(i, null, rotulos))), titulo);
+  const janela = window.open("", "_blank");
+  if (!janela) {
+    torrar("O navegador bloqueou a janela. Libere os pop-ups deste site.");
+    return;
+  }
+  janela.document.write(html);
+  janela.document.close();
+}
 
 /* ============================================================== estado === */
 
@@ -665,6 +743,9 @@ async function telaMinhas() {
         '<span class="tag ' + classeStatus(i.status) + '">' + rotuloStatus(i.status) + '</span>' +
       '</div>' +
       '<dl style="margin-top:14px">' +
+        (i.numero != null
+          ? '<div class="linha-dados"><dt>Número de peito</dt><dd class="mono">' +
+            '<b style="font-size:1.5em">' + i.numero + '</b></dd></div>' : "") +
         '<div class="linha-dados"><dt>Código</dt><dd class="mono">' + esc(i.codigo) + '</dd></div>' +
         '<div class="linha-dados"><dt>Valor' + (i.lote_nome ? " · " + esc(i.lote_nome) : "") +
           '</dt><dd class="mono">' + (i.valor_centavos > 0 ? dinheiro(i.valor_centavos) : "Gratuito") + '</dd></div>' +
@@ -675,6 +756,7 @@ async function telaMinhas() {
       '<div id="pix-' + i.id + '"></div>' +
       '<div class="acoes">' +
         (i.status === "pendente" ? '<button class="btn" data-pix="' + i.id + '">Ver o Pix</button>' : "") +
+        (i.numero != null ? '<button class="btn" data-peito="' + i.id + '">Imprimir meu número</button>' : "") +
         (i.status !== "pago" && i.status !== "cancelada"
           ? '<button class="btn perigo pequeno" data-cancelar="' + i.id + '">Cancelar inscrição</button>' : "") +
       '</div></div>';
@@ -916,7 +998,11 @@ async function telaPainel() {
   html += '<div class="painel">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">' +
       '<div><span class="eyebrow">Lista</span><h3 style="margin-top:4px">Inscritos</h3></div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      (pagos.some(i => i.numero != null)
+        ? '<button class="btn fantasma" data-peitos="1">Imprimir números de peito</button>' : "") +
       (inscritos.length ? '<button class="btn fantasma" id="exportar">Baixar planilha</button>' : "") +
+      '</div>' +
     '</div>' + tabelaInscritos(inscritos) + '</div>';
 
   html += '<div class="painel"><span class="eyebrow">Acesso</span>' +
@@ -974,7 +1060,7 @@ function tabelaInscritos(lista) {
     return '<div class="vazio" style="margin-top:14px"><h3>Ninguém se inscreveu ainda</h3>' +
       '<p>Publique um evento e divulgue o link do site.</p></div>';
   return '<div class="rolagem" style="margin-top:14px"><table><thead><tr>' +
-    '<th>Participante</th><th>Evento</th><th>Lote</th><th>Código</th><th>Valor</th><th>Situação</th><th></th>' +
+    '<th>Participante</th><th>Evento</th><th>Nº</th><th>Código</th><th>Valor</th><th>Situação</th><th>Kit</th><th></th>' +
     '</tr></thead><tbody>' + lista.map(i => {
       const ev = i.eventos || {};
       const respostas = Object.values(i.respostas || {}).join(" · ");
@@ -986,11 +1072,20 @@ function tabelaInscritos(lista) {
           (respostas ? '<br><span class="respostas">' + esc(respostas) + '</span>' : "") +
           (i.observacao ? '<br><span class="contato">“' + esc(i.observacao) + '”</span>' : "") + '</td>' +
         '<td>' + esc(ev.nome || "—") + '</td>' +
-        '<td>' + esc(i.lote_nome || "—") + '</td>' +
+        '<td class="mono"><b style="font-size:1.15em">' +
+          (i.numero == null ? "—" : i.numero) + '</b></td>' +
         '<td class="mono">' + esc(i.codigo) + '</td>' +
         '<td class="mono">' + (i.valor_centavos > 0 ? dinheiro(i.valor_centavos) : "—") + '</td>' +
         '<td><span class="tag ' + classeStatus(i.status) + '">' + rotuloStatus(i.status) + '</span></td>' +
         '<td style="white-space:nowrap">' +
+          (i.status !== "pago" ? '<span class="contato">—</span>'
+            : i.kit_retirado
+              ? '<span class="tag pago">entregue</span> ' +
+                '<button class="btn fantasma pequeno" data-kit="' + i.id + '|nao">desfazer</button>'
+              : '<button class="btn pequeno" data-kit="' + i.id + '|sim">Entregar kit</button>') +
+        '</td>' +
+        '<td style="white-space:nowrap">' +
+          (i.numero != null ? '<button class="btn fantasma pequeno" data-peito="' + i.id + '">Nº de peito</button> ' : "") +
           (i.status === "espera" ? '<button class="btn pequeno" data-status="' + i.id + '|pendente">Chamar da fila</button> ' : "") +
           (i.status !== "pago" && i.status !== "espera" ? '<button class="btn fantasma pequeno" data-status="' + i.id + '|pago">Marcar pago</button> ' : "") +
           (i.status !== "cancelada" ? '<button class="btn perigo pequeno" data-status="' + i.id + '|cancelada">Cancelar</button>' : "") +
@@ -1170,7 +1265,8 @@ function editorEvento(id) {
   const v = ev || {
     nome: "", descricao: "", edital: "", data: "", hora: "07:00", local: "",
     categoria: "Corrida de rua", cidade: "", uf: "", distancias: "", imagem_url: "",
-    vagas: 0, espera_ativa: true, inscricoes_abertas: true, publicado: false, destaque: false
+    vagas: 0, numero_inicial: 1, espera_ativa: true, inscricoes_abertas: true,
+    publicado: false, destaque: false
   };
   edEventoId = id;
   edCapa = v.imagem_url || "";
@@ -1201,6 +1297,9 @@ function editorEvento(id) {
         '<label>Horário<input name="hora" type="time" value="' + esc(hora(v.hora) || "") + '"></label>' +
         '<label>Vagas <span class="dica">0 para ilimitado</span>' +
           '<input name="vagas" type="number" min="0" step="1" value="' + (v.vagas || 0) + '"></label>' +
+        '<label>Numeração começa em <span class="dica">o nº de peito do primeiro pagante</span>' +
+          '<input name="numero_inicial" type="number" min="1" step="1" value="' +
+          (v.numero_inicial || 1) + '"></label>' +
         '<div style="display:flex;flex-direction:column;gap:8px;justify-content:flex-end;padding-bottom:4px">' +
           '<label class="caixinha"><input type="checkbox" name="espera_ativa"' +
             (v.espera_ativa ? " checked" : "") + '>Abrir lista de espera quando lotar</label>' +
@@ -1342,6 +1441,7 @@ function editorEvento(id) {
         data: f.get("data") || null,
         hora: f.get("hora") || null,
         vagas: parseInt(f.get("vagas") || "0", 10) || 0,
+        numero_inicial: Math.max(1, parseInt(f.get("numero_inicial") || "1", 10) || 1),
         espera_ativa: f.get("espera_ativa") === "on",
         destaque: f.get("destaque") === "on",
         descricao: String(f.get("descricao") || "").trim(),
@@ -1455,16 +1555,19 @@ function exportar() {
       if (!rotulos.some(r => r.rotulo === p.rotulo)) rotulos.push({ rotulo: p.rotulo, ids: [p.id] });
       else rotulos.find(r => r.rotulo === p.rotulo).ids.push(p.id);
 
-  const linhas = [["Codigo", "Participante", "Nascimento", "Titular", "Email", "Telefone",
-    "Evento", "Lote", "Valor", "Situacao", ...rotulos.map(r => r.rotulo), "Observacao", "Inscrito em"]];
+  const linhas = [["Numero", "Codigo", "Participante", "Nascimento", "Titular", "Email", "Telefone",
+    "Evento", "Lote", "Valor", "Situacao", "Kit retirado",
+    ...rotulos.map(r => r.rotulo), "Observacao", "Inscrito em"]];
   for (const i of lista) {
     linhas.push([
+      i.numero == null ? "" : i.numero,
       i.codigo, i.participante_nome, dataBR(i.participante_nascimento),
       i.eh_titular ? "sim" : "nao (dependente)",
       i.participante_email, i.participante_telefone,
       (i.eventos || {}).nome || "", i.lote_nome || "",
       (i.valor_centavos / 100).toFixed(2).replace(".", ","),
       rotuloStatus(i.status),
+      i.kit_retirado ? "sim" : "nao",
       ...rotulos.map(r => r.ids.map(id => (i.respostas || {})[id]).find(Boolean) || ""),
       i.observacao || "",
       new Date(i.criado_em).toLocaleString("pt-BR")
@@ -1510,7 +1613,8 @@ document.addEventListener("input", e => {
 document.addEventListener("click", async e => {
   const alvo = e.target.closest("[data-ir],[data-abrir],[data-inscrever],[data-voltar-evento]," +
     "[data-copiar],[data-pix],[data-cancelar],[data-sair],[data-editar],[data-publicar]," +
-    "[data-abrir-fechar],[data-apagar],[data-status],[data-imprimir],[data-recarregar]," +
+    "[data-abrir-fechar],[data-apagar],[data-status],[data-imprimir],[data-recarregar],"
+    + "[data-peito],[data-peitos],[data-kit]," +
     "[data-resultado],[data-resultados-de],[data-limpar-filtro],[data-tirar-acesso]");
   if (!alvo) return;
   const d = alvo.dataset;
@@ -1573,6 +1677,26 @@ document.addEventListener("click", async e => {
     if (!confirm("Tirar o acesso de " + d.quem + " ao Painel?")) return;
     try { await api.removerOrganizador(d.tirarAcesso); torrar("Acesso removido"); await desenharEquipe(); }
     catch (err) { torrar(mensagemDe(err)); }
+    return;
+  }
+  if (d.peito) {
+    const lista = estado.painel.inscritos.concat(estado.minhas);
+    const i = lista.find(x => x.id === d.peito);
+    if (i) imprimirPeitos([i], "Número " + i.numero);
+    return;
+  }
+  if (d.peitos) {
+    const pagos = estado.painel.inscritos.filter(i => i.status === "pago");
+    imprimirPeitos(pagos, "Números de peito");
+    return;
+  }
+  if (d.kit) {
+    const [id, resposta] = d.kit.split("|");
+    try {
+      await api.definirKit(id, resposta === "sim");
+      torrar(resposta === "sim" ? "Kit entregue" : "Entrega desfeita");
+      await telaPainel();
+    } catch (err) { torrar(mensagemDe(err)); }
     return;
   }
   if (d.status) {
