@@ -1,10 +1,12 @@
 // Gerador do número de peito.
 //
-// Monta, em SVG, a folha que o participante prende na camisa no dia da
-// corrida. Além do número grande, ela carrega duas partes destacáveis à
-// direita — KIT e ALIMENTAÇÃO — que a organização recolhe na entrega,
-// para ninguém pegar duas vezes. E um QR Code com o código da inscrição,
-// para conferência rápida na retirada.
+// Monta, em SVG, a folha que o participante prende na barriga no dia da
+// corrida. O número ocupa a folha inteira, porque é o que precisa ser lido
+// a cinquenta metros, de dentro de um carro, ou numa foto de chegada
+// tremida — tudo o mais é secundário e fica pequeno.
+//
+// No canto de baixo vai um QR com o código da inscrição, para a conferência
+// na retirada do kit: bipa e sabe quem é, sem procurar em lista.
 //
 // Tudo é desenhado aqui, sem imagem externa: imprime igual em qualquer
 // impressora e não depende da internet no dia do evento.
@@ -13,7 +15,6 @@ import { QR } from "./qr.js";
 
 const LARGURA = 980;
 const ALTURA  = 700;
-const FAIXA   = 200;   // largura da coluna dos canhotos destacáveis
 
 const esc = t => String(t == null ? "" : t)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -37,10 +38,11 @@ function tintaSobre(hex) {
  */
 function corpoDoNumero(texto) {
   const n = texto.length;
-  if (n <= 2) return 380;
-  if (n === 3) return 340;
-  if (n === 4) return 270;
-  return 215;
+  if (n <= 2) return 430;
+  if (n === 3) return 400;
+  if (n === 4) return 350;
+  if (n === 5) return 285;
+  return 235;
 }
 
 /**
@@ -51,14 +53,6 @@ export function formatarNumero(numero, digitos) {
   if (numero == null) return "?";
   const d = Math.min(6, Math.max(0, parseInt(digitos, 10) || 0));
   return String(numero).padStart(d, "0");
-}
-
-/** O mesmo cuidado para o número menor dos canhotos destacáveis. */
-function corpoDoCanhoto(texto) {
-  const n = texto.length;
-  if (n <= 3) return 72;
-  if (n === 4) return 56;
-  return 44;
 }
 
 /** Corta o texto num limite de caracteres, sem cortar palavra pela metade. */
@@ -102,7 +96,6 @@ function qrEmbutido(codigo, x, y, lado) {
  *   data        data já formatada, ex. "12 de outubro"
  *   local       cidade ou local da largada
  *   distancia   ex. "10 km"
- *   camisa      tamanho da camisa, ex. "G"
  *   sigla       iniciais da marca, ex. "AP"
  *   marca       nome do site, ex. "Alta Pista"
  *   cor         cor de acento em hexadecimal
@@ -114,27 +107,10 @@ export function folha(d) {
   const cor   = /^#[0-9a-fA-F]{6}$/.test(d.cor || "") ? d.cor : "#0B1B2B";
   const tinta = tintaSobre(cor);
   const num   = formatarNumero(d.numero, d.digitos);
-  const meio  = (LARGURA - FAIXA) / 2;
-  /* o QR ocupa o canto de baixo à esquerda; nome e distância se centram
-     no que sobra, senão o nome passa por cima do QR */
-  const meioTexto = (170 + (LARGURA - FAIXA)) / 2;
-
-  const canhoto = (titulo, y, altura) =>
-    '<g>' +
-      '<text x="' + (LARGURA - FAIXA / 2) + '" y="' + (y + 34) + '" text-anchor="middle" ' +
-        'font-size="' + (titulo.length > 6 ? 16 : 22) + '" font-weight="700" ' +
-        'letter-spacing="' + (titulo.length > 6 ? 1.5 : 3) + '" fill="#666666">' + esc(titulo) + '</text>' +
-      '<text x="' + (LARGURA - FAIXA / 2) + '" y="' + (y + altura / 2 + 34) + '" text-anchor="middle" ' +
-        'font-size="' + corpoDoCanhoto(num) + '" font-weight="800" fill="#0B1B2B">' + esc(num) + '</text>' +
-      (titulo === "KIT" && d.camisa
-        ? '<text x="' + (LARGURA - FAIXA / 2) + '" y="' + (y + altura - 26) + '" text-anchor="middle" ' +
-          'font-size="30" font-weight="700" fill="#0B1B2B">camisa ' + esc(d.camisa) + '</text>'
-        : '') +
-    '</g>';
-
-  const linhaPontilhada = (y) =>
-    '<line x1="' + (LARGURA - FAIXA + 10) + '" y1="' + y + '" x2="' + (LARGURA - 10) + '" y2="' + y +
-    '" stroke="#c9c9c9" stroke-width="2" stroke-dasharray="7 7"/>';
+  const meio  = LARGURA / 2;
+  /* o QR ocupa o canto de baixo a esquerda; nome e distancia se centram
+     no que sobra, senao o nome passa por cima do QR */
+  const meioTexto = (176 + LARGURA) / 2;
 
   const fundo = enderecoDeImagem(d.fundoUrl);
   const logo  = enderecoDeImagem(d.logoUrl);
@@ -155,7 +131,7 @@ export function folha(d) {
 
     /* a arte do evento, se houver, cobrindo a folha por baixo de tudo.
        O véu branco por cima garante que o número continue legível — sem
-       ele, uma foto escura engoliria os algarismos pretos. */
+       ele, uma foto escura engoliria os algarismos. */
     (fundo
       ? '<g clip-path="url(#folha-' + eu + ')">' +
         '<image href="' + esc(fundo) + '" x="3" y="3" ' +
@@ -168,7 +144,7 @@ export function folha(d) {
     '<rect x="1.5" y="1.5" width="' + (LARGURA - 3) + '" height="' + (ALTURA - 3) + '" ' +
       'fill="none" stroke="#d6d6d6" stroke-width="3" rx="18"/>' +
 
-    /* faixa do topo, com a marca à esquerda e o evento no centro */
+    /* faixa do topo, com a marca à esquerda e o evento ao lado */
     '<path d="M18,3 H' + (LARGURA - 18) + ' a15,15 0 0 1 15,15 V104 H3 V18 a15,15 0 0 1 15,-15 z" fill="' + cor + '"/>' +
     (logo
       ? '<circle cx="66" cy="54" r="30" fill="#ffffff"/>' +
@@ -177,42 +153,36 @@ export function folha(d) {
       : '<circle cx="66" cy="54" r="30" fill="' + tinta + '" opacity="0.16"/>' +
         '<text x="66" y="65" text-anchor="middle" font-size="30" font-weight="800" fill="' + tinta + '">' +
           esc((d.sigla || "").slice(0, 3).toUpperCase()) + '</text>') +
-    '<text x="112" y="46" font-size="27" font-weight="700" fill="' + tinta + '">' +
-      esc(encurtar(d.evento, 42)) + '</text>' +
-    '<text x="112" y="78" font-size="20" fill="' + tinta + '" opacity="0.85">' +
+    '<text x="112" y="46" font-size="29" font-weight="700" fill="' + tinta + '">' +
+      esc(encurtar(d.evento, 48)) + '</text>' +
+    '<text x="112" y="79" font-size="21" fill="' + tinta + '" opacity="0.85">' +
       esc([d.data, d.local].filter(Boolean).join("  ·  ")) + '</text>' +
+    '<text x="' + (LARGURA - 26) + '" y="70" text-anchor="end" font-size="19" ' +
+      'font-weight="600" letter-spacing="2" fill="' + tinta + '" opacity="0.8">' +
+      esc((d.marca || "").toUpperCase()) + '</text>' +
 
-    /* o número, o que se enxerga de longe */
-    '<text x="' + meio + '" y="' + (ALTURA / 2 + 78) + '" text-anchor="middle" ' +
+    /* o número, e o número é a folha inteira: é o que se lê a cinquenta
+       metros, de dentro de um carro, ou numa foto de chegada tremida */
+    '<text x="' + meio + '" y="' + (ALTURA / 2 + 96) + '" text-anchor="middle" ' +
       'font-size="' + corpoDoNumero(num) + '" font-weight="800" fill="#0B1B2B" ' +
-      'letter-spacing="-6">' + esc(num) + '</text>' +
+      'letter-spacing="-8">' + esc(num) + '</text>' +
 
     /* nome e distância ficam à direita do QR, para não encavalar nele */
-    '<text x="' + meioTexto + '" y="' + (ALTURA - 106) + '" text-anchor="middle" ' +
-      'font-size="27" font-weight="700" fill="#222222">' +
-      esc(encurtar((d.nome || "").toUpperCase(), 32)) + '</text>' +
+    '<text x="' + meioTexto + '" y="' + (ALTURA - 104) + '" text-anchor="middle" ' +
+      'font-size="30" font-weight="700" fill="#222222">' +
+      esc(encurtar((d.nome || "").toUpperCase(), 34)) + '</text>' +
     (d.distancia
-      ? '<rect x="' + (meioTexto - 74) + '" y="' + (ALTURA - 84) + '" width="148" height="38" rx="19" fill="' + cor + '"/>' +
-        '<text x="' + meioTexto + '" y="' + (ALTURA - 58) + '" text-anchor="middle" ' +
-        'font-size="22" font-weight="800" fill="' + tinta + '">' + esc(encurtar(d.distancia, 14)) + '</text>'
+      ? '<rect x="' + (meioTexto - 82) + '" y="' + (ALTURA - 82) + '" width="164" height="40" rx="20" fill="' + cor + '"/>' +
+        '<text x="' + meioTexto + '" y="' + (ALTURA - 54) + '" text-anchor="middle" ' +
+        'font-size="24" font-weight="800" fill="' + tinta + '">' + esc(encurtar(d.distancia, 14)) + '</text>'
       : '') +
 
-    /* QR do código, no canto de baixo à esquerda */
-    qrEmbutido(d.codigo || "-", 34, ALTURA - 148, 116) +
-    '<text x="92" y="' + (ALTURA - 16) + '" text-anchor="middle" font-size="19" ' +
+    /* QR do código, no canto de baixo à esquerda, para a conferência na
+       retirada do kit: bipa e sabe quem é, sem procurar em lista */
+    qrEmbutido(d.codigo || "-", 36, ALTURA - 152, 120) +
+    '<text x="96" y="' + (ALTURA - 14) + '" text-anchor="middle" font-size="19" ' +
       'font-family="ui-monospace, Menlo, Consolas, monospace" fill="#555555">' +
       esc(d.codigo || "") + '</text>' +
-
-    /* coluna destacável: KIT em cima, ALIMENTAÇÃO embaixo */
-    '<line x1="' + (LARGURA - FAIXA) + '" y1="104" x2="' + (LARGURA - FAIXA) + '" y2="' + (ALTURA - 3) + '" ' +
-      'stroke="#c9c9c9" stroke-width="2" stroke-dasharray="7 7"/>' +
-    (fundo ? '<rect x="' + (LARGURA - FAIXA) + '" y="104" width="' + (FAIXA - 3) + '" ' +
-             'height="' + (ALTURA - 107) + '" fill="#ffffff" opacity="0.82"/>' : '') +
-    canhoto("KIT", 130, 250) +
-    linhaPontilhada(410) +
-    canhoto("ALIMENTAÇÃO", 430, 220) +
-    '<text x="' + (LARGURA - FAIXA / 2) + '" y="' + (ALTURA - 18) + '" text-anchor="middle" ' +
-      'font-size="16" fill="#999999">' + esc(d.marca || "") + '</text>' +
 
   '</svg>';
 }

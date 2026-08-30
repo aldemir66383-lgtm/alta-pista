@@ -30,7 +30,6 @@ const base = {
   data: "12 de outubro de 2026",
   local: "Campina Grande/PB",
   distancia: "10 km",
-  camisa: "G",
   sigla: "AP",
   marca: "Alta Pista",
   cor: "#FFE01B"
@@ -42,22 +41,18 @@ teste("o número aparece na folha", () => {
   confere(folha({ ...base, numero: 137 }).includes(">137<"), "não achei o 137 no desenho");
 });
 
-teste("o número também vai nos dois canhotos destacáveis", () => {
+teste("o número aparece uma vez só, e é o dono da folha", () => {
   const s = folha({ ...base, numero: 137 });
-  const vezes = (s.match(/>137</g) || []).length;
-  igual(vezes, 3, "o número deveria sair três vezes: o grande e os dois canhotos");
+  igual((s.match(/>137</g) || []).length, 1, "o número deveria sair uma única vez");
+  const corpo = Number((s.match(/font-size="(\d+)" font-weight="800" fill="#0B1B2B" letter-spacing="-8"/) || [])[1]);
+  confere(corpo >= 380, "o número deveria ocupar a folha inteira, veio em " + corpo);
 });
 
-teste("KIT e ALIMENTAÇÃO estão nomeados", () => {
+teste("nada de canhotos destacáveis", () => {
   const s = folha({ ...base, numero: 137 });
-  confere(s.includes(">KIT<"), "faltou o canhoto do kit");
-  confere(s.includes("ALIMENTA"), "faltou o canhoto da alimentação");
-});
-
-teste("o tamanho da camisa aparece no canhoto do kit", () => {
-  confere(folha({ ...base, numero: 7 }).includes("camisa G"), "faltou o tamanho da camisa");
-  confere(!folha({ ...base, numero: 7, camisa: "" }).includes("camisa "),
-    "sem tamanho informado, não deveria escrever nada");
+  confere(!s.includes("KIT"), "sobrou o canhoto do kit");
+  confere(!/ALIMENTA/.test(s), "sobrou o canhoto da alimentação");
+  confere(!/stroke-dasharray/.test(s), "sobrou o picote");
 });
 
 teste("números de 1 a 5 dígitos cabem na folha", () => {
@@ -65,15 +60,15 @@ teste("números de 1 a 5 dígitos cabem na folha", () => {
     const s = folha({ ...base, numero: n });
     const corpo = Number((s.match(/font-size="(\d+)" font-weight="800" fill="#0B1B2B" letter-spacing/) || [])[1]);
     confere(corpo > 0, "não achei o corpo da fonte para " + n);
-    // largura aproximada do número: cada dígito ocupa cerca de 0,6 do corpo
+    // largura aproximada do número: cada dígito ocupa cerca de 0,62 do corpo
     const largura = String(n).length * corpo * 0.62;
-    confere(largura < 780, "o número " + n + " estouraria a área (" + Math.round(largura) + ")");
+    confere(largura < 900, "o número " + n + " estouraria a folha (" + Math.round(largura) + ")");
   }
 });
 
 teste("o QR da folha guarda o código da inscrição", () => {
   const s = folha({ ...base, numero: 137 });
-  const d = (s.match(/<g transform="translate\(34,552\) scale\([\d.]+\)"><rect[^>]*\/><path d="([^"]*)"/) || [])[1];
+  const d = (s.match(/<g transform="translate\(36,548\) scale\([\d.]+\)"><rect[^>]*\/><path d="([^"]*)"/) || [])[1];
   confere(d && d.length > 50, "não achei o desenho do QR na folha");
   // lê de volta pela matriz, que é a mesma fonte do desenho
   const m = QR.matriz(base.codigo);
@@ -148,7 +143,7 @@ teste("os algarismos fixos preenchem com zeros à esquerda", () => {
 
 teste("o formato pedido aparece na folha e nos canhotos", () => {
   const s = folha({ ...base, numero: 7, digitos: 4 });
-  igual((s.match(/>0007</g) || []).length, 3, "0007 deveria sair três vezes");
+  igual((s.match(/>0007</g) || []).length, 1, "0007 deveria sair uma vez");
   confere(!/>7</.test(s), "não deveria sobrar o número sem formato");
 });
 
