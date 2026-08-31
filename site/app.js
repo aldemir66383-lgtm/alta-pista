@@ -1132,6 +1132,18 @@ function tabelaInscritos(lista) {
 
 let edLogo = "";
 
+/**
+ * O botão que abre um editor fica no alto do painel, mas o editor é desenhado
+ * depois da lista inteira — fora da tela. Sem isto, quem clica não vê nada
+ * acontecer e conclui que o botão não funciona. Traz o formulário para a vista
+ * e põe o cursor no primeiro campo.
+ */
+function trazerParaAVista(caixa, seletorFoco) {
+  caixa.scrollIntoView({ behavior: "smooth", block: "start" });
+  const primeiro = seletorFoco && caixa.querySelector(seletorFoco);
+  if (primeiro) primeiro.focus({ preventScroll: true });
+}
+
 function ligarPainel() {
   edLogo = estado.painel.config.logo_url || "";
   const previaLogo = () => {
@@ -1573,6 +1585,8 @@ function editorEvento(id) {
       $("#erro-evento").innerHTML = '<div class="erro">' + esc(mensagemDe(err)) + '</div>';
     }
   });
+
+  trazerParaAVista(caixa, 'input[name="nome"]');
 }
 
 /* ---------------------------------------------- resultados no painel --- */
@@ -1632,6 +1646,8 @@ async function editorResultados(eventoId) {
       botao.disabled = false; botao.textContent = "Salvar classificação";
     }
   });
+
+  trazerParaAVista(caixa, "#texto-resultados");
 }
 
 /** Lê a colagem da planilha: posição; atleta; equipe; categoria; percurso; tempo. */
