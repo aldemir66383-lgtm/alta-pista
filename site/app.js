@@ -276,6 +276,7 @@ let vista = "eventos";
 function ir(nome, ctx) {
   vista = nome;
   if (nome !== "eventos") clearInterval(carrosselRelogio); // não roda escondido
+  if (nome !== "minhas") clearInterval(minhasRelogio);     // idem
   document.querySelectorAll(".secao").forEach(s => s.classList.remove("ativa"));
   $("#v-" + nome).classList.add("ativa");
   document.querySelectorAll("#menu button").forEach(b => {
@@ -418,6 +419,7 @@ function heroHTML(lista) {
 }
 
 let carrosselRelogio = null;
+let minhasRelogio = null;
 function ligarCarrossel() {
   clearInterval(carrosselRelogio);
   const caixa = $("#carrossel");
@@ -768,6 +770,8 @@ async function telaMinhas() {
   }
   $("#v-minhas").innerHTML = html + '</div></div>';
 
+  vigiarPendentes();
+
   for (const i of estado.minhas.filter(x => x.status === "espera")) {
     api.posicaoNaFila(i.id).then(pos => {
       const alvo = $("#pix-" + i.id);
@@ -777,6 +781,31 @@ async function telaMinhas() {
       }
     }).catch(() => {});
   }
+}
+
+/**
+ * Enquanto houver inscrição pendente na tela, confere sozinho de vinte em vinte
+ * segundos. Assim, quando a organização confirma o pagamento, a pessoa vê mudar
+ * para "pago" sem precisar recarregar — ela costuma ficar com a tela aberta
+ * esperando justamente isso. Para de conferir quando não há mais pendência,
+ * quando ela sai da tela e enquanto a aba está em segundo plano.
+ */
+function vigiarPendentes() {
+  clearInterval(minhasRelogio);
+  if (!estado.minhas.some(i => i.status === "pendente")) return;
+
+  const assinatura = () => estado.minhas.map(i => i.id + ":" + i.status).join("|");
+  let antes = assinatura();
+
+  minhasRelogio = setInterval(async () => {
+    if (vista !== "minhas" || document.hidden) return;
+    try { estado.minhas = await api.minhasInscricoes(); }
+    catch (e) { return; }                     // sem rede: tenta de novo depois
+    if (assinatura() === antes) return;
+    antes = assinatura();
+    if (estado.minhas.some(i => i.status === "pago")) torrar("Pagamento confirmado!");
+    telaMinhas();
+  }, 20000);
 }
 
 async function mostrarPix(id) {
