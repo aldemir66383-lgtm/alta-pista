@@ -1760,11 +1760,24 @@ function exportar() {
 /* ============================================================== erros === */
 
 function mensagemDe(e) {
-  const m = (e && e.message) || "";
+  // O Supabase às vezes põe a causa no código e não no texto — é o caso de
+  // "over_email_send_rate_limit". Olhar os dois evita mostrar isso cru.
+  const m = ((e && e.message) || "") + " " + ((e && e.code) || "");
   if (/failed to fetch|networkerror|load failed/i.test(m))
     return "Não conseguimos falar com o servidor. Verifique sua conexão e tente de novo.";
   if (/invalid api key|jwt/i.test(m))
     return "A configuração do site está incorreta. Avise a organização.";
+  // O link de acesso vai por e-mail, e é aí que aparecem os tropeços que a
+  // pessoa não tem como entender em inglês. Sem estas três, ela lê algo como
+  // "over_email_send_rate_limit" e conclui que o site está quebrado.
+  if (/rate[ _-]?limit|too many requests|429/i.test(m))
+    return "Muita gente pedindo link ao mesmo tempo. Espere uns minutos e tente de novo — " +
+      "se continuar assim, avise a organização.";
+  if (/sending (the )?(confirmation|magic|recovery)|failed to send|smtp/i.test(m))
+    return "Não conseguimos enviar o e-mail agora. Tente de novo daqui a pouco, " +
+      "ou avise a organização.";
+  if (/invalid email|email address.*invalid|unable to validate email/i.test(m))
+    return "Confira o endereço de e-mail — parece que ficou faltando alguma coisa.";
   return m || "Não foi possível carregar.";
 }
 function erroNa(alvo, e) {

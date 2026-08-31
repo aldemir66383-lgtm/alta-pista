@@ -70,11 +70,43 @@ Em **Authentication › Providers**, confirme que **Email** está ativo e que
 *Confirm email* está ligado. Em **Authentication › URL Configuration**, ponha o
 endereço do site em **Site URL** e também em **Redirect URLs**.
 
-> O e-mail gratuito do Supabase tem limite baixo (algumas mensagens por hora) e
-> serve para testar. Antes de divulgar, configure um SMTP próprio em
-> **Project Settings › Auth › SMTP Settings** — o Gmail da escola resolve, ou um
-> serviço como Resend/Brevo no plano gratuito. Sem isso, em dia de inscrição
-> muita gente não recebe o link.
+#### O envio de e-mail, antes de divulgar
+
+Todo mundo entra por link enviado por e-mail — não existe senha. O envio que o
+Supabase oferece de graça é limitado a poucas mensagens por hora e é declarado
+como sendo para desenvolvimento. Em dia de inscrição, isso significa que a
+maioria das pessoas simplesmente não recebe o link, e conclui que o site não
+funciona.
+
+A correção é gratuita e leva uns quinze minutos: usar um serviço de envio
+próprio. Qualquer um destes cobre com folga uma corrida de escola.
+
+| Serviço | Grátis até | Servidor (host) | Porta | Usuário |
+|---|---|---|---|---|
+| **Brevo** | 300 mensagens por dia | `smtp-relay.brevo.com` | 587 | o login que ele mostrar |
+| **Resend** | 3.000 por mês, 100 por dia | `smtp.resend.com` | 587 | `resend` |
+| **Gmail da escola** | ~500 por dia | `smtp.gmail.com` | 587 | o endereço completo |
+
+Com a conta criada, o serviço entrega uma senha de aplicativo — no Gmail ela sai
+em *Conta Google › Segurança › Senhas de app*, e **não** é a senha normal da
+conta. Então, em **Project Settings › Auth › SMTP Settings**, ligue *Enable
+Custom SMTP* e preencha:
+
+- **Sender email**: o endereço que aparece como remetente
+- **Sender name**: o nome da organização, como as pessoas devem lê-lo
+- **Host** e **Port**: da tabela acima
+- **Username** e **Password**: os que o serviço entregou
+
+Logo abaixo, em *Rate limits*, suba o limite de e-mails por hora para algo
+compatível com o serviço contratado — o padrão continua baixo mesmo depois de
+ligar o SMTP próprio.
+
+Para conferir, saia da sua conta no site e peça um link de acesso. Ele deve
+chegar em segundos, com o nome da organização no remetente. Se cair no spam,
+vale mandar um teste para dois ou três endereços diferentes antes de divulgar.
+
+> Enquanto isso não estiver feito, o site avisa em português quando o limite
+> estoura, em vez de mostrar o erro cru — mas o aviso não faz o e-mail chegar.
 
 ### 4. Configurar o site
 
