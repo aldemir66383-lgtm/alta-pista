@@ -376,7 +376,7 @@ function desenharEventos() {
   ligarCarrossel();
 }
 
-function heroSlide(ev, ativo) {
+function heroSlide(ev, ativo, naPagina) {
   const lotado = semVaga(ev);
   const preco = precoAtual(ev);
   return '<div class="hero-slide' + (ativo ? " ativo" : "") + '" data-slide>' +
@@ -391,22 +391,28 @@ function heroSlide(ev, ativo) {
         '<span><i>◈</i>' + (preco > 0 ? dinheiro(preco) : "Gratuito") + '</span>' +
       '</div>' +
       '<div class="acoes">' +
-        '<button class="btn clara" data-abrir="' + esc(ev.slug) + '">Detalhes</button>' +
+        // Na própria página do evento, "Detalhes" não leva a lugar nenhum e o
+        // botão grande precisa abrir o formulário — antes ele só reabria esta
+        // mesma página, e parecia que o clique não fazia nada.
+        (naPagina ? "" : '<button class="btn clara" data-abrir="' + esc(ev.slug) + '">Detalhes</button>') +
         (ev.inscricoes_abertas
-          ? '<button class="btn" data-abrir="' + esc(ev.slug) + '">' +
-            (lotado ? "Lista de espera" : "Inscreva-se") + '</button>'
+          ? (naPagina
+              ? '<button class="btn" data-inscrever="1">' +
+                (lotado ? "Entrar na lista de espera" : "Fazer inscrição") + '</button>'
+              : '<button class="btn" data-abrir="' + esc(ev.slug) + '">' +
+                (lotado ? "Lista de espera" : "Inscreva-se") + '</button>')
           : '<span class="tag cancelado">Inscrições encerradas</span>') +
       '</div>' +
     '</div></div>';
 }
 
 /** Faixa de abertura. Com mais de um evento vira carrossel. */
-function heroHTML(lista) {
+function heroHTML(lista, naPagina) {
   const evs = Array.isArray(lista) ? lista : [lista];
   if (!evs.length) return "";
   const varios = evs.length > 1;
   return '<section class="hero"' + (varios ? ' id="carrossel"' : "") + '>' +
-    evs.map((ev, i) => heroSlide(ev, i === 0)).join("") +
+    evs.map((ev, i) => heroSlide(ev, i === 0, naPagina)).join("") +
     (varios
       ? '<span class="hero-contador" id="hero-contador">1 / ' + evs.length + '</span>' +
         '<button class="hero-seta anterior" data-slide-passo="-1" aria-label="Evento anterior">‹</button>' +
@@ -557,7 +563,7 @@ async function telaEvento(slug) {
 
   clearInterval(carrosselRelogio); // a página do evento tem faixa única, sem rodízio
   $("#v-evento").innerHTML =
-    heroHTML([ev]) +
+    heroHTML([ev], true) +
     '<div class="faixa"><div class="limite">' +
     '<button class="btn fantasma pequeno" data-ir="eventos" style="margin-bottom:18px">← Todos os eventos</button>' +
     '<div class="painel">' +
@@ -592,6 +598,26 @@ async function telaEvento(slug) {
 }
 
 /* ==================================================== tela: inscrição === */
+
+/**
+ * Telefone brasileiro: DDD com dois algarismos e o número com oito (fixo) ou
+ * nove (celular) — onze algarismos no máximo. Escreve sozinho os parênteses,
+ * o espaço e o tracinho, e simplesmente ignora o que passar disso, para
+ * ninguém digitar o número errado sem perceber.
+ */
+function telefoneBonito(bruto) {
+  const d = String(bruto || "").replace(/\D/g, "").slice(0, 11);
+  if (!d) return "";
+  if (d.length <= 2) return "(" + d;
+  const corte = d.length <= 10 ? 6 : 7;
+  const meio = d.slice(2, corte), fim = d.slice(corte);
+  return "(" + d.slice(0, 2) + ") " + meio + (fim ? "-" + fim : "");
+}
+
+document.addEventListener("input", e => {
+  const campo = e.target;
+  if (campo && campo.name === "telefone") campo.value = telefoneBonito(campo.value);
+});
 
 function campoExtraHTML(c) {
   const req = c.obrigatorio ? " required" : "";
@@ -662,8 +688,9 @@ async function telaInscricao() {
           '<label>Data de nascimento<input name="nascimento" type="date" required></label>' +
           '<label>E-mail para contato<input name="email" type="email" required value="' +
             esc(estado.sessao.user.email) + '"></label>' +
-          '<label>Telefone<input name="telefone" autocomplete="tel" value="' +
-            esc(perfil && perfil.telefone || "") + '" placeholder="(00) 00000-0000"></label>' +
+          '<label>Telefone <span class="dica">com DDD</span>' +
+            '<input name="telefone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="15" value="' +
+            esc(telefoneBonito(perfil && perfil.telefone || "")) + '" placeholder="(83) 99999-9999"></label>' +
           extras.map(campoExtraHTML).join("") +
           '<label>Observação <span class="dica">opcional</span>' +
             '<input name="observacao" placeholder="Algo que a organização precisa saber"></label>' +
