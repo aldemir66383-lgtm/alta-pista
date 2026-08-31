@@ -13,6 +13,10 @@
 # conversa com o Supabase (connect-src) e nao deixa a pagina ser embutida em
 # outro site (frame-ancestors 'none'). O site nao carrega nenhum JavaScript de
 # CDN — o do Supabase e uma copia local em site/vendor/ — entao 'self' basta.
+# A unica excecao e challenges.cloudflare.com: o widget do Turnstile (CAPTCHA
+# opcional da tela de Entrar). Ele so e baixado se turnstileSiteKey estiver
+# preenchida no config.js; com ela vazia, nada de challenges.cloudflare.com
+# chega a carregar.
 [[headers]]
   for = "/*"
   [headers.values]
@@ -23,4 +27,4 @@
     Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
     Cross-Origin-Opener-Policy = "same-origin"
     Cross-Origin-Resource-Policy = "same-origin"
-    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"

@@ -59,6 +59,8 @@ function traduzir(erro) {
   if (/row-level security|permission denied/i.test(m))
     return "Você não tem permissão para isso.";
   if (/duplicate key/i.test(m)) return "Esse registro já existe.";
+  if (/captcha|verification process/i.test(m))
+    return "A verificação de segurança falhou. Recarregue a página e tente de novo.";
   return m || "Não foi possível concluir. Tente de novo.";
 }
 function conferir({ data, error }) {
@@ -75,12 +77,15 @@ export async function sessaoAtual() {
 export function aoMudarSessao(callback) {
   return sb.auth.onAuthStateChange((_evento, sessao) => callback(sessao));
 }
-export async function entrarPorEmail(email, nome) {
+export async function entrarPorEmail(email, nome, captchaToken) {
   return conferir(await sb.auth.signInWithOtp({
     email,
     options: {
       emailRedirectTo: window.location.origin + window.location.pathname,
-      data: nome ? { nome } : undefined
+      data: nome ? { nome } : undefined,
+      // Só vai quando a tela de Entrar tiver montado o widget do Turnstile
+      // (CONFIG.turnstileSiteKey preenchida). Sem ele, o Supabase ignora.
+      captchaToken: captchaToken || undefined
     }
   }));
 }

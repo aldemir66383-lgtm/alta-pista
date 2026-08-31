@@ -124,6 +124,25 @@ vale mandar um teste para dois ou três endereços diferentes antes de divulgar.
 > Enquanto isso não estiver feito, o site avisa em português quando o limite
 > estoura, em vez de mostrar o erro cru — mas o aviso não faz o e-mail chegar.
 
+#### Frear o abuso do envio de link (opcional e gratuito)
+
+Sem isso o site continua funcionando igual. É só uma trava a mais contra alguém
+que fique pedindo link para milhares de endereços e queime a sua cota de e-mail.
+Usa o **Cloudflare Turnstile**, que é de graça e não pede cartão.
+
+1. Em <https://dash.cloudflare.com> abra **Turnstile** e clique em **Add site**.
+   Em *Domain* ponha o endereço do site (e `localhost`, se for testar na sua
+   máquina). O tipo pode ficar em *Managed*.
+2. O Cloudflare mostra duas chaves. Copie a **Site Key** (a pública) para o
+   `site/config.js`, no campo `turnstileSiteKey: "..."`. Ela pode ficar no
+   código — é pública como a chave anon.
+3. No Supabase, em **Authentication › Attack Protection**, ligue **Enable
+   Captcha protection**, escolha o provider **Turnstile** e cole ali a
+   **Secret Key** (a outra chave, que **não** vai para o site).
+
+Pronto: a tela de Entrar passa a fazer a verificação sozinha antes de enviar o
+link. Deixe `turnstileSiteKey` vazio (`""`) para desligar.
+
 ### 4. Configurar o site
 
 Pegue os dois valores em **Project Settings › API** e rode, na pasta do projeto:

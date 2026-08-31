@@ -294,6 +294,15 @@ await teste("o site não carrega JavaScript de CDN de terceiros", async () => {
   const vendor = readFileSync(join(dir, "vendor", "supabase-js.js"), "utf8");
   confere(vendor.length > 10000 && /createClient/.test(vendor),
     "site/vendor/supabase-js.js parece incompleto — rode: npm run vendor");
+
+  // As fontes também são servidas pelo próprio site (site/fontes/), via
+  // site/fontes.css. Nada de Google Fonts: cada carregamento por lá entregaria
+  // o IP do visitante ao Google.
+  const html = readFileSync(join(dir, "index.html"), "utf8");
+  confere(!/fonts\.googleapis\.com/.test(html),
+    "site/index.html ainda aponta para fonts.googleapis.com");
+  confere(!/fonts\.gstatic\.com/.test(html),
+    "site/index.html ainda aponta para fonts.gstatic.com");
 });
 
 /* ------------------------------------------------------------- resumo --- */

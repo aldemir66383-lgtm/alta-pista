@@ -9,5 +9,10 @@
 
 export const CONFIG = {
   supabaseUrl: "https://SEU-PROJETO.supabase.co",
-  supabaseAnonKey: "COLE-AQUI-A-CHAVE-ANON-PUBLIC"
+  supabaseAnonKey: "COLE-AQUI-A-CHAVE-ANON-PUBLIC",
+
+  // "Site Key" pública do Cloudflare Turnstile (o CAPTCHA da tela de Entrar).
+  // Pode ficar no código — é pública, como a chave anon acima. Deixe vazia
+  // ("") e o captcha simplesmente não é usado: o site funciona igual a hoje.
+  turnstileSiteKey: ""
 };

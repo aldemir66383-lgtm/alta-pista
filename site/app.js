@@ -4,6 +4,7 @@
 // status saem da função inscrever() no banco; esta tela só mostra e pergunta.
 
 import * as api from "./api.js";
+import { CONFIG } from "./config.js";
 import { QR } from "./qr.js";
 import { Pix } from "./pix.js";
 import { folha as folhaDePeito, paginaParaImprimir, formatarNumero } from "./peito.js";
@@ -1151,7 +1152,32 @@ function desenharClassificacao() {
 
 /* ==================================================== tela: entrar ====== */
 
+// CAPTCHA opcional (Cloudflare Turnstile) da tela de Entrar. Só entra em cena
+// quando CONFIG.turnstileSiteKey está preenchida — a "Site Key" é pública e
+// pode ficar no config.js. Vazia, nada disto roda: a tela fica igual a hoje.
+// O Supabase valida o token nativamente (Authentication › Attack Protection),
+// então basta passar o token adiante em signInWithOtp; não há endpoint próprio.
+const TURNSTILE_SITE_KEY = String((CONFIG && CONFIG.turnstileSiteKey) || "").trim();
+let turnstilePronto = null;   // Promise, criada só na primeira vez que precisar.
+
+function carregarTurnstile() {
+  if (turnstilePronto) return turnstilePronto;
+  turnstilePronto = new Promise((resolve, reject) => {
+    if (window.turnstile) return resolve(window.turnstile);
+    // <script> criado por JS, uma única vez. Não mexe no index.html.
+    const s = document.createElement("script");
+    s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    s.async = true; s.defer = true;
+    s.onload = () => resolve(window.turnstile);
+    s.onerror = () => reject(new Error("Não foi possível carregar a verificação de segurança."));
+    document.head.appendChild(s);
+  });
+  return turnstilePronto;
+}
+
 function telaEntrar() {
+  const usaCaptcha = !!TURNSTILE_SITE_KEY;
+
   $("#v-entrar").innerHTML =
     '<div class="faixa"><div class="entrar-caixa"><div class="painel">' +
       '<span class="eyebrow">Sua conta</span><h2 style="margin-top:4px">Entrar</h2>' +
@@ -1161,17 +1187,51 @@ function telaEntrar() {
       '<form id="form-entrar"><div class="campos">' +
         '<label>Seu nome<input name="nome" placeholder="Como devemos te chamar"></label>' +
         '<label>E-mail<input name="email" type="email" required placeholder="voce@exemplo.com" autocomplete="email"></label>' +
-      '</div><div class="acoes"><button class="btn" type="submit" id="botao-entrar">Enviar link de acesso</button></div>' +
+      '</div>' +
+      (usaCaptcha ? '<div id="turnstile-entrar" style="margin-top:14px"></div>' : '') +
+      '<div class="acoes"><button class="btn" type="submit" id="botao-entrar">Enviar link de acesso</button></div>' +
       '<div id="aviso-entrar"></div></form>' +
     '</div></div></div>';
+
+  // Token do Turnstile: chega pelo callback quando a verificação passa, e cada
+  // token só vale um envio. Sem captcha, fica sempre "" e nada muda.
+  let tokenCaptcha = "";
+  let widgetCaptcha = null;
+
+  if (usaCaptcha) {
+    carregarTurnstile().then(ts => {
+      const alvo = $("#turnstile-entrar");
+      if (!ts || !alvo) return;   // a pessoa saiu da tela antes de carregar
+      widgetCaptcha = ts.render(alvo, {
+        sitekey: TURNSTILE_SITE_KEY,
+        callback: t => { tokenCaptcha = t || ""; },
+        "expired-callback": () => { tokenCaptcha = ""; },
+        "error-callback": () => { tokenCaptcha = ""; }
+      });
+    }).catch(err => {
+      const aviso = $("#aviso-entrar");
+      if (aviso) aviso.innerHTML = '<div class="erro">' + esc(mensagemDe(err)) + '</div>';
+    });
+  }
 
   $("#form-entrar").addEventListener("submit", async e => {
     e.preventDefault();
     const f = new FormData(e.target);
     const botao = $("#botao-entrar");
+
+    if (usaCaptcha && !tokenCaptcha) {
+      $("#aviso-entrar").innerHTML = '<div class="aviso info" style="margin-top:16px"><span>⏳</span><span>' +
+        'Aguarde a verificação de segurança terminar — leva alguns segundos — e envie de novo.</span></div>';
+      return;
+    }
+
     botao.disabled = true; botao.textContent = "Enviando…";
     try {
-      await api.entrarPorEmail(String(f.get("email")).trim(), String(f.get("nome") || "").trim());
+      await api.entrarPorEmail(
+        String(f.get("email")).trim(),
+        String(f.get("nome") || "").trim(),
+        tokenCaptcha || undefined
+      );
       $("#aviso-entrar").innerHTML = '<div class="aviso info" style="margin-top:16px"><span>✉</span><span>' +
         'Link enviado. Abra seu e-mail e clique no link para entrar — pode levar um minuto, ' +
         'e vale conferir a caixa de spam.</span></div>';
@@ -1179,6 +1239,11 @@ function telaEntrar() {
     } catch (err) {
       $("#aviso-entrar").innerHTML = '<div class="erro">' + esc(mensagemDe(err)) + '</div>';
       botao.disabled = false; botao.textContent = "Tentar de novo";
+      // O token queimou nesta tentativa: reinicia o widget para a próxima.
+      if (usaCaptcha && window.turnstile && widgetCaptcha != null) {
+        try { window.turnstile.reset(widgetCaptcha); } catch (_) {}
+        tokenCaptcha = "";
+      }
     }
   });
 }
@@ -1988,6 +2053,8 @@ function mensagemDe(e) {
       "ou avise a organização.";
   if (/invalid email|email address.*invalid|unable to validate email/i.test(m))
     return "Confira o endereço de e-mail — parece que ficou faltando alguma coisa.";
+  if (/captcha|verification process/i.test(m))
+    return "A verificação de segurança falhou. Recarregue a página e tente de novo.";
   return m || "Não foi possível carregar.";
 }
 function erroNa(alvo, e) {
