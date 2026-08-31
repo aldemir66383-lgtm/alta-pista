@@ -702,6 +702,16 @@ async function telaInscricao() {
           '<span style="font-size:.83rem;color:var(--tinta-fraca)">' +
             'Seus dados ficam com a organização e só você enxerga sua inscrição.</span>' +
         '</div>' +
+        // Diz para que servem os dados, por quanto tempo ficam e como sair.
+        // A escola é a responsável por eles, e como há menores inscritos por
+        // responsáveis, isso precisa estar escrito, não combinado de boca.
+        '<div class="explica" style="margin-top:14px;font-size:.83rem;line-height:1.5">' +
+          '<b>Sobre os seus dados.</b> Usamos o que você preencher apenas para organizar ' +
+          'este evento: confirmar a inscrição e o pagamento, emitir o número de peito, ' +
+          'entregar o kit e publicar a classificação. Ficam guardados enquanto o evento ' +
+          'estiver ativo e podem ser apagados a qualquer momento a seu pedido — é só falar ' +
+          'com a organização. Não vendemos nem repassamos esses dados a ninguém.' +
+        '</div>' +
         '<div id="erro-inscricao"></div>' +
       '</form>' +
     '</div></div></div>';
@@ -859,8 +869,10 @@ async function mostrarPix(id) {
         'Abra o app do banco, escolha Pix › Pagar com QR Code e aponte a câmera — ou copie o código.</p></div>' +
         '<div class="copia mono">' + esc(payload) + '</div>' +
         '<div><button class="btn" data-copiar="' + esc(payload) + '">Copiar código Pix</button></div>' +
-        '<p style="font-size:.82rem;color:var(--tinta-fraca)">Depois de pagar, a organização confere o ' +
-        'recebimento e sua inscrição passa a constar como paga.</p>' +
+        '<p style="font-size:.82rem;color:var(--tinta-fraca)">Depois de pagar, <b>não precisa ' +
+        'fazer mais nada</b>: a organização confere o recebimento e confirma em até 24 horas. ' +
+        'Quando isso acontecer, esta tela muda sozinha para <b>paga</b> — pode deixá-la aberta, ' +
+        'ou voltar aqui depois pelo menu Minhas inscrições.</p>' +
       '</div>' +
     '</div>';
 }
