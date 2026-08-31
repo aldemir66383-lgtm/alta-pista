@@ -186,6 +186,13 @@ await teste("gerar códigos de inscrição à vontade", async () => {
   confere(!r.ok, "a função de gerar código deveria ser interna");
 });
 
+await teste("disparar a expiração de pendências sem conta", async () => {
+  // 0013: cancela pendências vencidas. Só organizador logado (ou o pg_cron)
+  // pode chamar. Sem conta deve ser recusada — ou nem existir ainda.
+  const r = await rpc("expirar_pendencias");
+  confere(!r.ok, "BRECHA: expirar_pendencias aceitou chamada anônima");
+});
+
 
 await teste("marcar um kit como entregue", async () => {
   const r = await rest("inscricoes?id=eq.00000000-0000-0000-0000-000000000000", {
@@ -264,7 +271,7 @@ await teste("o site publicado responde", async () => {
   const r = await fetch("https://alta-pista.netlify.app/", { redirect: "follow" });
   confere(r.ok, "o site respondeu " + r.status);
   const html = await r.text();
-  confere(/Balc/i.test(html), "a página não parece a do Balcão");
+  confere(/Balc|Alta-Pista/i.test(html), "a página não parece a do site");
 });
 
 await teste("o site não expõe chave secreta no código", async () => {
@@ -272,6 +279,21 @@ await teste("o site não expõe chave secreta no código", async () => {
     const t = await (await fetch("https://alta-pista.netlify.app/" + arq)).text();
     confere(!/sb_secret_|service_role"\s*:/.test(t), "chave secreta encontrada em " + arq);
   }
+});
+
+await teste("o site não carrega JavaScript de CDN de terceiros", async () => {
+  // Um import de CDN é código de fora rodando com a sessão de quem está
+  // logado. O do Supabase virou cópia local em site/vendor/. Conferido no
+  // código-fonte deste repositório, sem depender do que já foi publicado.
+  const dir = join(aqui, "..", "site");
+  for (const arq of ["app.js", "api.js", "qr.js", "pix.js", "peito.js"]) {
+    const t = readFileSync(join(dir, arq), "utf8");
+    confere(!/from\s+["']https?:\/\//.test(t) && !/import\(["']https?:\/\//.test(t),
+      "import de endereço externo em site/" + arq);
+  }
+  const vendor = readFileSync(join(dir, "vendor", "supabase-js.js"), "utf8");
+  confere(vendor.length > 10000 && /createClient/.test(vendor),
+    "site/vendor/supabase-js.js parece incompleto — rode: npm run vendor");
 });
 
 /* ------------------------------------------------------------- resumo --- */

@@ -460,6 +460,25 @@ td .contato{color:var(--tinta-fraca);font-size:.81rem}
 .edital li{margin-bottom:6px}
 .edital strong{color:var(--tinta);font-weight:700}
 
+/* -------------------------------------------------- ajuda do evento -- */
+.assistente-evento{margin-top:22px;padding:18px;border:1px solid var(--borda-forte);border-left:4px solid var(--acento);border-radius:var(--r);background:var(--superficie-2)}
+.assistente-evento h3{margin-top:4px;text-transform:uppercase}
+.assistente-evento p{margin-top:6px;color:var(--tinta-media);font-size:.9rem;max-width:68ch}
+.ajuda-chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.chip-ajuda{
+  background:var(--superficie);border:1px solid var(--borda);border-radius:14px;
+  padding:5px 11px;font-size:.82rem;font-weight:600;color:var(--tinta-media);
+  cursor:pointer;transition:background .15s ease,color .15s ease,border-color .15s ease;
+  font-family:inherit;
+}
+.chip-ajuda:hover{background:var(--acento);color:var(--sobre-acento);border-color:var(--acento)}
+.ajuda-linha{display:flex;gap:9px;margin-top:13px;align-items:center}
+.ajuda-linha input{min-width:0;flex:1}
+.resposta-ajuda{display:none;margin-top:13px;padding:11px 13px;background:var(--superficie);border-radius:var(--r);color:var(--tinta-media);line-height:1.55}
+.resposta-ajuda:not(:empty){display:block}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:520px){.ajuda-linha{align-items:stretch;flex-direction:column}.ajuda-linha .btn{width:100%}}
+
 .para-quem{
   display:flex;gap:14px;flex-wrap:wrap;margin:18px 0 4px;
   background:var(--superficie-2);border:1px solid var(--borda);border-radius:var(--r);padding:12px 14px;

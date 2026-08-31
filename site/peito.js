@@ -193,7 +193,10 @@ export function folha(d) {
  * (todas as inscrições pagas de uma vez).
  */
 export function paginaParaImprimir(folhas, titulo) {
-  const fim = "<" + "/script>";
+  // Sem <script> aqui dentro de propósito: a impressão é disparada pela janela
+  // que abre esta página (ver imprimirPeitos em app.js). Assim a página não
+  // precisa de permissão para rodar script, e a política de segurança do site
+  // pode proibir script embutido sem quebrar a impressão.
   return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">' +
     '<meta name="viewport" content="width=device-width, initial-scale=1">' +
     '<title>' + esc(titulo || "Números de peito") + '</title><style>' +
@@ -210,6 +213,5 @@ export function paginaParaImprimir(folhas, titulo) {
     'Escolha papel A4 deitado, uma folha por página. ' +
     'Este aviso não sai na impressão.</div>' +
     folhas.map(s => '<div class="folha">' + s + '</div>').join("") +
-    '<script>window.addEventListener("load",function(){setTimeout(function(){window.print();},400);});' + fim +
     '</body></html>';
 }

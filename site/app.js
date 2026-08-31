@@ -1,4 +1,4 @@
-// Balcão de Inscrições — aplicação do site.
+// Alta-Pista — aplicação do site.
 //
 // Nenhuma regra de dinheiro ou de vaga é decidida aqui. O preço, o lote e o
 // status saem da função inscrever() no banco; esta tela só mostra e pergunta.
@@ -189,6 +189,10 @@ function imprimirPeitos(inscricoes, titulo) {
   }
   janela.document.write(html);
   janela.document.close();
+  // A página de impressão não tem script próprio; quem manda imprimir é aqui.
+  const imprimir = () => { try { janela.focus(); janela.print(); } catch (e) {} };
+  if (janela.document.readyState === "complete") setTimeout(imprimir, 400);
+  else janela.addEventListener("load", () => setTimeout(imprimir, 400));
 }
 
 /* ============================================================== estado === */
@@ -196,7 +200,7 @@ function imprimirPeitos(inscricoes, titulo) {
 /* =========================================================== identidade == */
 
 const IDENTIDADE_PADRAO = {
-  organizacao: "", sigla: "B", nome_site: "Balcão",
+  organizacao: "", sigla: "AP", nome_site: "Alta-Pista",
   subtitulo: "Inscrições esportivas", cor_acento: "#C6F24E",
   sobre: "", contato: "", instagram: "", whatsapp: "", logo_url: ""
 };
@@ -224,8 +228,20 @@ function escurecer(hex, quanto) {
   return "#" + [0, 2, 4].map(i => canal(i).toString(16).padStart(2, "0")).join("");
 }
 
+/** Valida URLs de imagens externas/embutidas para evitar esquemas perigosos. */
+function enderecoDeImagem(url) {
+  const u = String(url || "").trim();
+  return /^(https?:\/\/|data:image\/|\/)/i.test(u) ? u : "";
+}
+
 function aplicarIdentidade(id) {
   const i = Object.assign({}, IDENTIDADE_PADRAO, id || {});
+  // Migração visual gratuita da identidade inicial. Organizações que já
+  // escolheram outro nome continuam com a própria marca.
+  if (i.nome_site === "Balcão" && (i.sigla === "B" || !i.sigla)) {
+    i.nome_site = "Alta-Pista";
+    i.sigla = "AP";
+  }
   estado.identidade = i;
   estado.organizacao = i.organizacao || "";
 
@@ -235,22 +251,25 @@ function aplicarIdentidade(id) {
   raiz.setProperty("--acento-escuro", escurecer(i.cor_acento, 0.12));
 
   const selo = $(".marca .selo");
-  selo.innerHTML = i.logo_url
-    ? '<img src="' + esc(i.logo_url) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'
-    : esc((i.sigla || "B").slice(0, 3).toUpperCase());
-  selo.classList.toggle("com-logo", !!i.logo_url);
-  $(".marca b").textContent = i.nome_site || "Balcão";
+  const logoSegura = enderecoDeImagem(i.logo_url);
+  selo.innerHTML = logoSegura
+    ? '<img src="' + esc(logoSegura) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'
+    : esc((i.sigla || "AP").slice(0, 3).toUpperCase());
+  selo.classList.toggle("com-logo", !!logoSegura);
+  $(".marca b").textContent = i.nome_site || "Alta-Pista";
   $("#marca-org").textContent = i.organizacao || i.subtitulo || "Inscrições esportivas";
-  document.title = (i.nome_site || "Balcão") + (i.organizacao ? " · " + i.organizacao : "");
+  document.title = (i.nome_site || "Alta-Pista") + (i.organizacao ? " · " + i.organizacao : "");
 
   if (i.sobre) $("#rodape-sobre").textContent = i.sobre;
   const contato = [];
   if (i.contato) contato.push("<li><span>" + esc(i.contato) + "</span></li>");
-  if (i.whatsapp) contato.push('<li><a href="https://wa.me/' +
-    esc(i.whatsapp.replace(/\D/g, "")) + '" target="_blank" rel="noopener">WhatsApp ' + esc(i.whatsapp) + "</a></li>");
-  if (i.instagram) contato.push('<li><a href="https://instagram.com/' +
-    esc(i.instagram.replace(/^@/, "")) + '" target="_blank" rel="noopener">@' +
-    esc(i.instagram.replace(/^@/, "")) + "</a></li>");
+  const zap = String(i.whatsapp || "").replace(/\D/g, "");
+  if (zap) contato.push('<li><a href="https://wa.me/' +
+    esc(zap) + '" target="_blank" rel="noopener noreferrer">WhatsApp ' + esc(i.whatsapp) + "</a></li>");
+  const insta = String(i.instagram || "").replace(/^@/, "").replace(/[^a-zA-Z0-9._]/g, "");
+  if (insta) contato.push('<li><a href="https://instagram.com/' +
+    esc(insta) + '" target="_blank" rel="noopener noreferrer">@' +
+    esc(insta) + "</a></li>");
   if (contato.length) $("#rodape-contato").innerHTML = contato.join("");
 }
 
@@ -273,7 +292,7 @@ let vista = "eventos";
 
 /* =============================================================== rotas === */
 
-function ir(nome, ctx) {
+function ir(nome, ctx, atualizarHist = true) {
   vista = nome;
   if (nome !== "eventos") clearInterval(carrosselRelogio); // não roda escondido
   if (nome !== "minhas") clearInterval(minhasRelogio);     // idem
@@ -285,12 +304,40 @@ function ir(nome, ctx) {
     if (marca) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
   });
   window.scrollTo({ top: 0, behavior: "smooth" });
+  if (atualizarHist) atualizarEndereco(nome, ctx);
   return desenhar(ctx);
+}
+
+/** URLs diretas facilitam a navegação no navegador e divulgação no WhatsApp. */
+function atualizarEndereco(nome, ctx) {
+  let hash = "";
+  if (nome === "evento" && ctx) hash = "#evento=" + encodeURIComponent(ctx);
+  else if (nome === "resultados" && ctx) hash = "#resultados=" + encodeURIComponent(ctx);
+  else if (nome === "resultados") hash = "#resultados";
+  else if (nome === "minhas") hash = "#minhas";
+  else if (nome === "entrar") hash = "#entrar";
+  else if (nome === "painel") hash = "#painel";
+  else if (nome === "inscricao") hash = "#inscricao";
+  else if (nome === "eventos") hash = "";
+
+  if (window.location.hash !== hash && !(hash === "" && (!window.location.hash || window.location.hash === "#"))) {
+    history.pushState(null, "", window.location.pathname + window.location.search + hash);
+  }
+}
+
+function destinoDoEndereco() {
+  const h = window.location.hash.replace(/^#/, "");
+  if (!h) return null;
+  const [chave, valor] = h.split("=");
+  if (chave === "evento" && valor) return { vista: "evento", slug: decodeURIComponent(valor) };
+  if (chave === "resultados") return { vista: "resultados", slug: valor ? decodeURIComponent(valor) : null };
+  if (["eventos", "minhas", "entrar", "painel", "inscricao"].includes(chave)) return { vista: chave, slug: null };
+  return null;
 }
 
 async function desenhar(ctx) {
   $("#rodape-assinatura").textContent =
-    (estado.organizacao || estado.identidade.nome_site || "Balcão") + " · " + new Date().getFullYear();
+    (estado.organizacao || estado.identidade.nome_site || "Alta-Pista") + " · " + new Date().getFullYear();
   $("#menu button[data-ir='painel']").hidden = !estado.organizador;
   desenharIdentidade();
   if (vista === "eventos") return telaEventos();
@@ -586,6 +633,7 @@ async function telaEvento(slug) {
           renderEdital(ev.edital) + '</div>' +
           '<div class="acoes"><button class="btn fantasma pequeno" data-imprimir="1">Imprimir ou salvar em PDF</button></div>'
         : "") +
+      assistenteDoEventoHTML(ev) +
       '<div class="acoes">' +
         (fechado
           ? '<span class="tag cancelado">Inscrições encerradas</span>'
@@ -595,6 +643,150 @@ async function telaEvento(slug) {
           ? '<button class="btn fantasma" data-resultado="' + esc(ev.slug) + '">Ver resultados</button>' : "") +
       '</div>' +
     '</div></div></div>';
+
+  ligarAssistenteDoEvento(ev);
+}
+
+/* Assistente local: pesquisa inteligente no edital e dados do evento. */
+function assistenteDoEventoHTML(ev) {
+  const sugestoes = [
+    "Qual o valor da inscrição?",
+    "Onde e que horas?",
+    "Quais os percursos?",
+    "Até quando posso me inscrever?",
+    "Como funciona o kit e camisa?"
+  ];
+  return '<aside class="assistente-evento" aria-label="Tire dúvidas sobre o evento">' +
+    '<span class="eyebrow">Ajuda rápida</span><h3>Tem alguma dúvida?</h3>' +
+    '<p>Pergunte sobre data, local, lotes, percursos, valores ou regras. A resposta usa as informações oficiais deste evento.</p>' +
+    '<div class="ajuda-chips" role="group" aria-label="Perguntas rápidas">' +
+      sugestoes.map(s => '<button type="button" class="chip-ajuda" data-pergunta-chip="' + esc(s) + '">' + esc(s) + '</button>').join("") +
+    '</div>' +
+    '<form id="form-ajuda-evento"><label class="sr-only" for="pergunta-evento">Sua pergunta</label>' +
+      '<div class="ajuda-linha">' +
+        '<input id="pergunta-evento" maxlength="280" autocomplete="off" placeholder="Ex.: até quando posso me inscrever?">' +
+        '<button class="btn pequeno" type="submit">Perguntar</button>' +
+      '</div>' +
+    '</form>' +
+    '<div id="resposta-evento" class="resposta-ajuda" aria-live="polite"></div>' +
+  '</aside>';
+}
+
+const STOPWORDS_PT = new Set([
+  "o", "a", "os", "as", "um", "uma", "uns", "umas", "de", "do", "da", "dos", "das",
+  "em", "no", "na", "nos", "nas", "por", "para", "com", "sem", "sob", "sobre",
+  "ao", "aos", "qual", "quais", "quem", "como", "onde", "quando", "quanto", "quantos",
+  "quanta", "quantas", "que", "se", "ou", "e", "este", "esta", "estes", "estas",
+  "esse", "essa", "esses", "essas", "aquele", "aquela", "aqueles", "aquelas",
+  "isto", "isso", "aquilo", "meu", "minha", "seu", "sua", "dele", "dela",
+  "nosso", "nossa", "tem", "temos", "pode", "podem", "fazer", "acontece",
+  "ser", "esta", "estao", "estava", "estavam", "vai", "vao", "voce", "voces", "eu",
+  "ha", "deste", "desta", "nesse", "nessa", "mim", "me"
+]);
+
+function palavrasDaPergunta(texto) {
+  const norm = String(texto || "").toLocaleLowerCase("pt-BR")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const palavras = norm.match(/[a-z0-9]{2,}/g) || [];
+  const filtradas = palavras.filter(p => !STOPWORDS_PT.has(p));
+  return filtradas.length ? filtradas : palavras;
+}
+
+function respostaDoEvento(ev, pergunta) {
+  const termos = palavrasDaPergunta(pergunta);
+  if (!termos.length) return "Escreva uma pergunta para eu procurar a resposta no edital.";
+
+  const textoBusca = " " + termos.join(" ") + " ";
+  const tem = t => termos.includes(t) || textoBusca.includes(" " + t + " ");
+
+  // Intenção 1: Data / Horário / Início
+  if (tem("data") || tem("quando") || tem("dia") || tem("hora") || tem("horario") ||
+      tem("horas") || tem("inicio") || tem("largada") || tem("comeca") || tem("termina")) {
+    const d = dataLonga(ev.data);
+    const h = ev.hora ? " às " + hora(ev.hora) : "";
+    return "Data e horário: " + d + h + ". Local: " + (ev.local || "a definir") + (cidadeUF(ev) ? " — " + cidadeUF(ev) : "") + ".";
+  }
+
+  // Intenção 2: Local / Cidade / Onde
+  if (tem("local") || tem("onde") || tem("endereco") || tem("cidade") || tem("chegar") ||
+      tem("rua") || tem("pista") || tem("estadio") || tem("bairro") || tem("mapa") || tem("uf")) {
+    return "Local da prova: " + (ev.local || "A definir") + (cidadeUF(ev) ? " (" + cidadeUF(ev) + ")" : "") + ".";
+  }
+
+  // Intenção 3: Valores / Preço / Lotes / Pix
+  if (tem("preco") || tem("precos") || tem("valor") || tem("valores") || tem("custa") ||
+      tem("custo") || tem("lote") || tem("lotes") || tem("taxa") || tem("taxas") ||
+      tem("pagar") || tem("pagamento") || tem("pix") || tem("gratis") || tem("gratuito")) {
+    const lotes = (ev.lotes || []).slice().sort((a, b) => a.ordem - b.ordem);
+    const preco = precoAtual(ev);
+    let descLotes = "";
+    if (lotes.length > 1) {
+      descLotes = " Lotes: " + lotes.map(l => l.nome + " (" + (l.preco_centavos > 0 ? dinheiro(l.preco_centavos) : "Gratuito") + ")").join(", ") + ".";
+    }
+    return "Valor da inscrição: " + (preco > 0 ? dinheiro(preco) : "Gratuito") + "." + descLotes + " O pagamento é feito via Pix no próprio site.";
+  }
+
+  // Intenção 4: Percursos / Distâncias
+  if (tem("percurso") || tem("percursos") || tem("distancia") || tem("distancias") ||
+      tem("km") || tem("5k") || tem("5km") || tem("10k") || tem("10km") || tem("21k") ||
+      tem("21km") || tem("42k") || tem("42km") || tem("trajeto") || tem("caminhada") || tem("corrida")) {
+    if (ev.distancias) {
+      return "Percursos confirmados: " + ev.distancias + ".";
+    }
+  }
+
+  // Intenção 5: Inscrições / Vagas / Prazos
+  if (tem("inscricao") || tem("inscricoes") || tem("inscrever") || tem("prazo") ||
+      tem("ate") || tem("encerramento") || tem("encerrar") || tem("aberta") ||
+      tem("abertas") || tem("vaga") || tem("vagas") || tem("espera") || tem("fila")) {
+    const status = ev.inscricoes_abertas ? "Inscrições abertas no site." : "Inscrições encerradas.";
+    const vagas = ev.vagas ? " Vagas restantes: " + (vagasRestantes(ev) ?? "ilimitadas") + "." : "";
+    return "Situação das inscrições: " + status + vagas;
+  }
+
+  // Busca contextual em fatos e trechos do edital
+  const fatos = [
+    "Data e horário: " + dataLonga(ev.data) + (ev.hora ? " às " + hora(ev.hora) : ""),
+    "Local: " + (ev.local || "a definir") + (cidadeUF(ev) ? " — " + cidadeUF(ev) : ""),
+    ev.distancias ? "Percursos: " + ev.distancias : "",
+    "Inscrições: " + (ev.inscricoes_abertas ? "abertas" : "encerradas"),
+    "Valor atual: " + (precoAtual(ev) > 0 ? dinheiro(precoAtual(ev)) : "gratuito"),
+    String(ev.edital || "")
+  ].filter(Boolean);
+
+  const trechos = fatos.flatMap(f => f.split(/(?<=[.!?])\s+|\n+/)).filter(t => t.trim().length > 6);
+  const melhor = trechos.map(t => {
+    const palavrasDoTrecho = palavrasDaPergunta(t);
+    const pontos = termos.filter(p => palavrasDoTrecho.some(pt => pt.includes(p) || p.includes(pt))).length;
+    return { t: t.trim().replace(/^[-#*>\s]+/, ""), pontos };
+  }).sort((a, b) => b.pontos - a.pontos)[0];
+
+  if (melhor && melhor.pontos > 0) {
+    return melhor.t;
+  }
+
+  return "Não encontrei isso nas informações públicas publicadas. Consulte o edital completo acima ou fale com a organização pelo contato no rodapé.";
+}
+
+function ligarAssistenteDoEvento(ev) {
+  const form = $("#form-ajuda-evento");
+  if (!form) return;
+  const input = $("#pergunta-evento");
+  const resposta = $("#resposta-evento");
+
+  form.addEventListener("submit", e => {
+    e.preventDefault();
+    const pergunta = input ? input.value.trim() : "";
+    resposta.textContent = respostaDoEvento(ev, pergunta);
+  });
+
+  document.querySelectorAll(".chip-ajuda").forEach(chip => {
+    chip.addEventListener("click", () => {
+      const q = chip.dataset.perguntaChip || chip.textContent;
+      if (input) { input.value = q; }
+      resposta.textContent = respostaDoEvento(ev, q);
+    });
+  });
 }
 
 /* ==================================================== tela: inscrição === */
@@ -999,6 +1191,10 @@ let edPeitoLogo = "", edPeitoFundo = "";
 async function telaPainel() {
   if (!estado.organizador) { torrar("Área restrita à organização"); return ir("eventos"); }
   carregando("#v-painel");
+  // Best-effort: devolve as vagas presas em pendências vencidas antes de
+  // mostrar os números. Se a função ainda não foi instalada (supabase/0013),
+  // segue sem barulho.
+  try { await api.expirarPendencias(); } catch (e) { /* 0013 ainda não rodou */ }
   try {
     const [cfg, evs, ins] = await Promise.all([
       api.configuracao(), api.eventosDoPainel(), api.inscritosDoPainel()
@@ -1007,6 +1203,12 @@ async function telaPainel() {
   } catch (e) { return erroNa("#v-painel", e); }
 
   const { config, eventos, inscritos } = estado.painel;
+  // Deixa a migração também pronta para ser gravada pelo próximo salvamento
+  // da identidade, sem alterar outros dados da organização.
+  if (config.nome_site === "Balcão" && (config.sigla === "B" || !config.sigla)) {
+    config.nome_site = "Alta-Pista";
+    config.sigla = "AP";
+  }
   const pagos = inscritos.filter(i => i.status === "pago");
   const arrecadado = pagos.reduce((s, i) => s + i.valor_centavos, 0);
 
@@ -1231,8 +1433,8 @@ function ligarPainel() {
     if (!valida(corEscolhida)) { torrar("Cor inválida — use o formato #RRGGBB"); return; }
     try {
       await api.salvarConfiguracao({
-        sigla: String(f.get("sigla") || "B").trim().toUpperCase().slice(0, 3) || "B",
-        nome_site: String(f.get("nome_site") || "").trim() || "Balcão",
+        sigla: String(f.get("sigla") || "AP").trim().toUpperCase().slice(0, 3) || "AP",
+        nome_site: String(f.get("nome_site") || "").trim() || "Alta-Pista",
         subtitulo: String(f.get("subtitulo") || "").trim(),
         cor_acento: corEscolhida,
         contato: String(f.get("contato") || "").trim(),
@@ -1748,8 +1950,16 @@ function exportar() {
       new Date(i.criado_em).toLocaleString("pt-BR")
     ]);
   }
-  const csv = "﻿" + linhas.map(l =>
-    l.map(c => '"' + String(c == null ? "" : c).replace(/"/g, '""') + '"').join(";")).join("\r\n");
+  // Uma célula que começa com = + - @ (ou tab/quebra) é lida como fórmula pelo
+  // Excel e pelo Sheets ao abrir o arquivo. Como nome, e-mail e observação vêm
+  // digitados pelo participante, um `=...` ali viraria fórmula na planilha da
+  // organização. O apóstrofo na frente faz a planilha tratar como texto.
+  const celula = c => {
+    let s = String(c == null ? "" : c);
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return '"' + s.replace(/"/g, '""') + '"';
+  };
+  const csv = "﻿" + linhas.map(l => l.map(celula).join(";")).join("\r\n");
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
   const a = document.createElement("a");
   a.href = url; a.download = "inscricoes.csv";
@@ -1904,6 +2114,17 @@ document.addEventListener("click", async e => {
   }
 });
 
+window.addEventListener("popstate", () => {
+  const dest = destinoDoEndereco();
+  if (dest) {
+    if (dest.vista === "evento" && dest.slug) ir(dest.vista, dest.slug, false);
+    else if (dest.vista === "resultados") ir(dest.vista, dest.slug, false);
+    else ir(dest.vista, null, false);
+  } else {
+    ir("eventos", null, false);
+  }
+});
+
 /* ============================================================= partida == */
 
 (async function iniciar() {
@@ -1937,6 +2158,8 @@ document.addEventListener("click", async e => {
 
   // quem já chega logado (voltou do link do e-mail) volta para onde parou
   if (estado.sessao && pegarDestino()) return levarAoDestino();
+  const destinoUrl = destinoDoEndereco();
+  if (destinoUrl) return ir(destinoUrl.vista, destinoUrl.slug);
   await ir("eventos");
 })();
 

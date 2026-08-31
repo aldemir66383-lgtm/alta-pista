@@ -31,6 +31,14 @@ Na prática:
   de funções que devolvem só números, nunca a lista de pessoas.
 - **Última vaga sem corrida.** A função `inscrever()` usa trava por evento, de
   modo que dois cliques simultâneos não ocupam a mesma vaga.
+- **Ninguém entope o evento de graça.** Uma conta não acumula mais de cinco
+  inscrições não pagas no mesmo evento, nem inscreve o mesmo nome duas vezes
+  (`supabase/0012`). E pendências sem pagamento há mais de 48h são canceladas
+  sozinhas, devolvendo a vaga para a fila (`supabase/0013`).
+- **Nada de código de fora.** O site não importa nenhum JavaScript de CDN: a
+  biblioteca do Supabase é uma cópia local em `site/vendor/`. Um `Content-
+  Security-Policy` no `netlify.toml` manda o navegador só executar script do
+  próprio site e só conversar com o Supabase.
 
 A `anon key` que fica no `config.js` é pública por natureza e não é um segredo.
 A que **nunca** pode aparecer no site é a `service_role`: ela ignora todas as
@@ -63,6 +71,14 @@ Se preferir por partes, rode os três **nesta ordem**, cada um por vez:
 
 Cada um deve terminar com "Success". Pode rodar de novo quando quiser: os três
 são idempotentes.
+
+**Depois**, rode também, na ordem do número, os arquivos `supabase/0005` em
+diante — equipe pelo painel, fechamento das funções internas, número de peito,
+personalização, e as travas `0012` (enxurrada de inscrições) e `0013`
+(pendências que vencem). Todos são idempotentes e cada um termina com
+"Success". O `0013` tenta ligar o `pg_cron` sozinho; se aparecer um aviso
+pedindo para ligá-lo em **Database › Extensions**, ligue e rode o `0013` de
+novo.
 
 ### 3. Ligar o login por e-mail
 
@@ -293,11 +309,15 @@ supabase/0002_capas_categorias_resultados.sql   capas, modalidade, destaque e re
 supabase/0003_identidade.sql                    marca editável: iniciais, nome, cor, rodapé
 supabase/0005_equipe.sql                        dar e tirar acesso ao painel pelo site
 supabase/0006_fechar_funcoes_internas.sql       tira as funções internas do alcance público
+supabase/0012_limite_de_inscricoes.sql          trava contra enxurrada de inscrições não pagas
+supabase/0013_expirar_pendencias.sql            cancela pendências vencidas e devolve a vaga
+netlify.toml                                    cabeçalhos de segurança e Content-Security-Policy
 site/index.html                                 estrutura da página
 site/estilo.css                                 identidade visual (claro e escuro)
 site/app.js                                     telas e interações
 site/api.js                                     conversa com o Supabase
 site/pix.js                                     código Pix (EMV do Banco Central + CRC-16)
 site/qr.js                                      desenha o QR Code, sem biblioteca externa
+site/vendor/supabase-js.js                      cópia local da biblioteca do Supabase (npm run vendor)
 site/config.exemplo.js                          modelo do config.js
 ```

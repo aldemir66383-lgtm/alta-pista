@@ -9,9 +9,12 @@
     "test:pagamento": "node testes/pix-e-qr.mjs",
     "test:seguranca": "node testes/seguranca.mjs",
     "qr": "node gerar-qr.mjs",
-    "servir": "npx --yes serve site"
+    "servir": "npx --yes serve site",
+    "vendor": "esbuild vendor.entrada.mjs --bundle --format=esm --platform=browser --target=es2020 --minify --legal-comments=none --banner:js=\"/* @supabase/supabase-js 2.45.4 - copia local, gerada por 'npm run vendor'. Nao editar a mao. */\" --outfile=site/vendor/supabase-js.js"
   },
   "devDependencies": {
+    "@supabase/supabase-js": "2.45.4",
+    "esbuild": "0.24.0",
     "jsqr": "^1.4.0"
   }
 }

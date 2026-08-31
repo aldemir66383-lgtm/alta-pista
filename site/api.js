@@ -5,7 +5,11 @@
 // políticas de segurança do Postgres devolveriam apenas as linhas do próprio
 // usuário de qualquer forma. Ver supabase/0001_esquema.sql.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+// O cliente do Supabase é uma cópia local (site/vendor/supabase-js.js), não um
+// import de CDN. Assim o site não depende de um servidor de terceiros para
+// abrir, e ninguém consegue trocar essa biblioteca no caminho. Para atualizar a
+// versão: `npm run vendor` (veja site/vendor/LEIA-ME.md).
+import { createClient } from "./vendor/supabase-js.js";
 import { CONFIG } from "./config.js";
 
 /** true enquanto o config.js ainda estiver com os valores de exemplo. */
@@ -319,12 +323,27 @@ export async function substituirResultados(eventoId, linhas) {
 
 /* ----------------------------------------------------------- capa/imagem -- */
 
-/** Envia a capa para o balde público "capas" e devolve a URL definitiva. */
+/**
+ * Envia a capa para o balde público "capas" e devolve a URL definitiva.
+ *
+ * O balde é público e serve o arquivo exatamente com o tipo que gravamos. Por
+ * isso só aceitamos imagem de verdade (jpg, png, webp, gif) e forçamos o
+ * `contentType` para `image/...`: assim ninguém sobe um .html ou um .svg com
+ * script e recebe de volta uma URL no domínio do projeto que abre como página.
+ */
+const TIPOS_DE_CAPA = {
+  jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
+  webp: "image/webp", gif: "image/gif"
+};
 export async function enviarCapa(arquivo) {
-  const ext = (arquivo.name.split(".").pop() || "jpg").toLowerCase();
+  const ext = (arquivo.name.split(".").pop() || "").toLowerCase();
+  const tipo = TIPOS_DE_CAPA[ext];
+  if (!tipo || !/^image\//.test(arquivo.type || "")) {
+    throw new Error("Envie uma imagem JPG, PNG, WEBP ou GIF.");
+  }
   const caminho = crypto.randomUUID() + "." + ext;
   const { error } = await sb.storage.from("capas")
-    .upload(caminho, arquivo, { cacheControl: "31536000", upsert: false });
+    .upload(caminho, arquivo, { cacheControl: "31536000", upsert: false, contentType: tipo });
   if (error) throw new Error(traduzir(error));
   return sb.storage.from("capas").getPublicUrl(caminho).data.publicUrl;
 }
@@ -337,6 +356,17 @@ export async function definirKit(id, retirado) {
   return conferir(await sb.from("inscricoes")
     .update({ kit_retirado: !!retirado, kit_retirado_em: retirado ? new Date().toISOString() : null })
     .eq("id", id).select().single());
+}
+
+/**
+ * Cancela as inscrições pendentes já vencidas e devolve as vagas para a fila.
+ * Chamada ao abrir o Painel; também roda sozinha pelo pg_cron. Ver
+ * supabase/0013_expirar_pendencias.sql.
+ */
+export async function expirarPendencias() {
+  const { data, error } = await sb.rpc("expirar_pendencias");
+  if (error) throw new Error(error.message);
+  return data ?? 0;
 }
 
 export async function definirStatus(id, status) {
