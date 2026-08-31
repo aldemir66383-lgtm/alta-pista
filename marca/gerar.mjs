@@ -118,10 +118,13 @@ function bloco(tipo, dados) {
   return Buffer.concat([tam, t, dados, c]);
 }
 
-/** PNG de 8 bits com canal alfa, a partir de uma função (x,y) -> [r,g,b,a]. */
-export function png(lado, cor) {
+/**
+ * PNG de 8 bits com canal alfa, a partir de uma função (x,y) -> [r,g,b,a].
+ * Quadrado por padrão; passe `altura` para uma imagem retangular.
+ */
+export function png(lado, cor, altura = lado) {
   const linhas = [];
-  for (let y = 0; y < lado; y++) {
+  for (let y = 0; y < altura; y++) {
     const linha = Buffer.alloc(1 + lado * 4);
     for (let x = 0; x < lado; x++) {
       const [r, g, b, a] = cor(x, y);
@@ -131,7 +134,7 @@ export function png(lado, cor) {
     linhas.push(linha);
   }
   const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(lado, 0); ihdr.writeUInt32BE(lado, 4);
+  ihdr.writeUInt32BE(lado, 0); ihdr.writeUInt32BE(altura, 4);
   ihdr[8] = 8; ihdr[9] = 6;   // 8 bits por canal, RGBA
   return Buffer.concat([
     Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
