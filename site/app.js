@@ -1152,7 +1152,9 @@ function tabelaInscritos(lista) {
           (i.status === "espera" ? '<button class="btn pequeno" data-status="' + i.id + '|pendente">Chamar da fila</button> ' : "") +
           (i.status !== "pago" && i.status !== "espera" ? '<button class="btn fantasma pequeno" data-status="' + i.id + '|pago">Marcar pago</button> ' : "") +
           (i.status !== "cancelada" ? '<button class="btn perigo pequeno" data-status="' + i.id + '|cancelada">Cancelar</button>' : "") +
-          (i.status === "cancelada" ? '<button class="btn fantasma pequeno" data-status="' + i.id + '|pendente">Reabrir</button>' : "") +
+          (i.status === "cancelada" ? '<button class="btn fantasma pequeno" data-status="' + i.id + '|pendente">Reabrir</button> ' : "") +
+          '<button class="btn perigo pequeno" data-apagar-inscricao="' + i.id + '" ' +
+            'title="Tira do banco de vez. Cancelar apenas marca como cancelada.">Apagar</button>' +
         '</td></tr>';
     }).join("") + '</tbody></table></div>';
 }
@@ -1774,7 +1776,7 @@ document.addEventListener("input", e => {
 document.addEventListener("click", async e => {
   const alvo = e.target.closest("[data-ir],[data-abrir],[data-inscrever],[data-voltar-evento]," +
     "[data-copiar],[data-pix],[data-cancelar],[data-sair],[data-editar],[data-publicar]," +
-    "[data-abrir-fechar],[data-apagar],[data-status],[data-imprimir],[data-recarregar],"
+    "[data-abrir-fechar],[data-apagar],[data-apagar-inscricao],[data-status],[data-imprimir],[data-recarregar],"
     + "[data-peito],[data-peitos],[data-kit]," +
     "[data-resultado],[data-resultados-de],[data-limpar-filtro],[data-tirar-acesso]");
   if (!alvo) return;
@@ -1829,9 +1831,19 @@ document.addEventListener("click", async e => {
   if (d.apagar) {
     const ev = estado.painel.eventos.find(x => x.id === d.apagar);
     if (!ev) return;
-    if (!confirm("Apagar “" + ev.nome + "”? Se já houver inscrições, o banco recusa — encerre o evento em vez de apagar.")) return;
+    if (!confirm("Apagar “" + ev.nome + "”? Se já houver inscrições, o banco recusa: apague as inscrições antes, na lista de Inscritos.")) return;
     try { await api.apagarEvento(d.apagar); torrar("Evento apagado"); await telaPainel(); }
-    catch (err) { torrar("Não dá para apagar um evento que já tem inscrições. Use “Encerrar inscrições”."); }
+    catch (err) { torrar("Este evento ainda tem inscrições. Apague-as em Inscritos, ou use “Encerrar inscrições”."); }
+    return;
+  }
+  if (d.apagarInscricao) {
+    const i = estado.painel.inscritos.find(x => x.id === d.apagarInscricao);
+    if (!i) return;
+    if (!confirm("Apagar a inscrição de " + i.participante_nome + "? " +
+      "Isto tira do banco de vez, sem desfazer. Para apenas liberar a vaga, " +
+      "use Cancelar.")) return;
+    try { await api.apagarInscricao(d.apagarInscricao); torrar("Inscrição apagada"); await telaPainel(); }
+    catch (err) { torrar(mensagemDe(err)); }
     return;
   }
   if (d.tirarAcesso) {

@@ -248,6 +248,19 @@ async function sincronizarFilhos(tabela, eventoId, lista, mapear) {
 export async function apagarEvento(id) {
   return conferir(await sb.from("eventos").delete().eq("id", id));
 }
+
+/**
+ * Apaga a inscrição de vez. Cancelar guarda o registro; apagar tira do banco,
+ * e é o que resolve dois casos reais: a inscrição de teste que ficou para trás
+ * e o pedido de quem quer os próprios dados removidos depois do evento.
+ *
+ * As respostas do formulário moram na própria linha, em jsonb, e nenhuma outra
+ * tabela aponta para cá — então não fica nada órfão. A política de DELETE do
+ * banco exige ser organizador; o site não precisa conferir de novo.
+ */
+export async function apagarInscricao(id) {
+  return conferir(await sb.from("inscricoes").delete().eq("id", id));
+}
 export async function inscritosDoPainel() {
   return conferir(await sb.from("inscricoes")
     .select("*, eventos(nome, slug, data, hora, local, cidade, uf, distancias, "
