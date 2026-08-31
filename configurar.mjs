@@ -6,7 +6,7 @@
 // Ele escreve o site/config.js e depois testa a conexão de verdade: confere se
 // a chave é aceita, se as tabelas existem e se o balde de imagens foi criado.
 
-import { writeFileSync, existsSync } from "node:fs";
+import { writeFileSync, existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -98,13 +98,27 @@ const base = url.replace(/\/$/, "");
 
 // ---------------------------------------------------------------- escreve --
 const destino = join(aqui, "site", "config.js");
+
+// Preserva a Site Key do Turnstile se ela já estiver no config.js: regenerar a
+// configuração não pode apagar o captcha que a organização já ligou.
+let turnstile = "";
+if (existsSync(destino)) {
+  const m = readFileSync(destino, "utf8").match(/turnstileSiteKey:\s*"([^"]*)"/);
+  if (m) turnstile = m[1];
+}
+
 writeFileSync(destino, `// Gerado por configurar.mjs — pode editar à mão se precisar.
 // Estes dois valores são públicos por natureza: quem protege os dados são as
 // políticas de segurança do banco, não o segredo da chave.
 
 export const CONFIG = {
   supabaseUrl: ${JSON.stringify(base)},
-  supabaseAnonKey: ${JSON.stringify(chave)}
+  supabaseAnonKey: ${JSON.stringify(chave)},
+
+  // "Site Key" pública do Cloudflare Turnstile (o CAPTCHA da tela de Entrar).
+  // Pode ficar no código — é pública, como a chave anon acima. Vazia (""), o
+  // captcha não é usado e o site funciona exatamente como hoje.
+  turnstileSiteKey: ${JSON.stringify(turnstile)}
 };
 `);
 console.log(verde("✓") + " site/config.js escrito");

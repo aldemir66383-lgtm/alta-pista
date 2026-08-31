@@ -74,9 +74,10 @@ são idempotentes.
 
 **Depois**, rode também, na ordem do número, os arquivos `supabase/0005` em
 diante — equipe pelo painel, fechamento das funções internas, número de peito,
-personalização, e as travas `0012` (enxurrada de inscrições) e `0013`
-(pendências que vencem). Todos são idempotentes e cada um termina com
-"Success". O `0013` tenta ligar o `pg_cron` sozinho; se aparecer um aviso
+personalização, e as travas `0012` (enxurrada de inscrições), `0013`
+(pendências que vencem) e `0014` (fecha a função do `0013` para quem não tem
+conta — precisa vir depois do `0013`). Todos são idempotentes e cada um termina
+com "Success". O `0013` tenta ligar o `pg_cron` sozinho; se aparecer um aviso
 pedindo para ligá-lo em **Database › Extensions**, ligue e rode o `0013` de
 novo.
 
@@ -330,6 +331,7 @@ supabase/0005_equipe.sql                        dar e tirar acesso ao painel pel
 supabase/0006_fechar_funcoes_internas.sql       tira as funções internas do alcance público
 supabase/0012_limite_de_inscricoes.sql          trava contra enxurrada de inscrições não pagas
 supabase/0013_expirar_pendencias.sql            cancela pendências vencidas e devolve a vaga
+supabase/0014_fechar_expirar_pendencias.sql     tira a função do 0013 do alcance de quem não tem conta
 netlify.toml                                    cabeçalhos de segurança e Content-Security-Policy
 site/index.html                                 estrutura da página
 site/estilo.css                                 identidade visual (claro e escuro)
