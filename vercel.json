@@ -1,8 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": null,
   "outputDirectory": "site",
-  "framework": null,
   "rewrites": [
     { "source": "/.netlify/functions/:fn*", "destination": "/api/:fn*" }
   ],
