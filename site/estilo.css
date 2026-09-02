@@ -181,7 +181,65 @@ nav button[aria-current="page"]{color:var(--acento);border-bottom-color:var(--ac
 .btn.perigo{background:transparent;color:var(--cancelado);border-color:var(--borda-forte)}
 .btn.perigo:hover{background:var(--cancelado-veu);border-color:var(--cancelado)}
 .btn.pequeno{padding:6px 12px;font-size:.74rem;letter-spacing:.06em;border-width:1px}
+.btn.micro{padding:3px 8px;font-size:.68rem;letter-spacing:.04em;border-width:1px;border-radius:2px}
 .btn.largo{width:100%}
+
+/* botão de tema no topo */
+.btn-tema{
+  background:transparent;border:1px solid rgba(255,255,255,.28);color:var(--sobre-base);
+  border-radius:50%;width:34px;height:34px;display:grid;place-items:center;cursor:pointer;
+  font-size:.92rem;transition:background .15s ease,border-color .15s ease;padding:0;
+}
+.btn-tema:hover{background:rgba(255,255,255,.15);border-color:var(--acento)}
+
+/* badge de contagem regressiva */
+.badge-contagem{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  padding:3px 8px;border-radius:3px;margin-bottom:6px;width:fit-content;
+}
+.badge-contagem.hoje{background:var(--acento);color:var(--sobre-acento);animation:pulso 2s infinite}
+.badge-contagem.amanha{background:#FF8400;color:#fff}
+.badge-contagem.futuro{background:var(--superficie-2);color:var(--tinta-media);border:1px solid var(--borda)}
+.badge-contagem.passou{background:var(--superficie-2);color:var(--tinta-fraca)}
+@keyframes pulso{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+
+/* ações extras do evento */
+.linha-acoes-evento{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+
+/* busca na tabela de inscritos do painel */
+.busca-tabela-caixa{margin:14px 0 16px}
+.busca-tabela{
+  width:100%;max-width:440px;padding:9px 12px;font-size:.88rem;
+  border:1px solid var(--borda-forte);border-radius:var(--r);background:var(--superficie);
+  color:var(--tinta);
+}
+
+/* resumo de kits e camisas */
+.resumo-camisas{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;
+  background:var(--superficie-2);border:1px solid var(--borda);border-radius:var(--r);
+  padding:16px;margin:16px 0;
+}
+.resumo-camisas h4{font-size:.75rem;text-transform:uppercase;letter-spacing:.1em;color:var(--tinta-fraca);margin-bottom:8px}
+.chips-resumo{display:flex;gap:6px;flex-wrap:wrap}
+.chip-resumo{
+  background:var(--superficie);border:1px solid var(--borda-forte);padding:4px 8px;
+  border-radius:3px;font-size:.8rem;color:var(--tinta);display:inline-flex;gap:6px;align-items:center;
+}
+.chip-resumo strong{font-family:"IBM Plex Mono",monospace;color:var(--pago);font-weight:700}
+
+/* barra de ocupação */
+.barra-progresso{height:8px;background:var(--superficie-2);border-radius:4px;overflow:hidden;border:1px solid var(--borda);margin-top:4px}
+.barra-progresso-fill{height:100%;background:var(--acento);border-radius:4px;transition:width .4s ease}
+
+/* badge de número de peito em minhas inscrições */
+.mini-peito-cartao{
+  display:inline-flex;align-items:center;gap:12px;padding:10px 16px;
+  background:var(--superficie-2);border:1px solid var(--borda-forte);border-left:4px solid var(--acento);
+  border-radius:var(--r);margin:12px 0;
+}
+.mini-peito-cartao .num{font-family:"IBM Plex Mono",monospace;font-size:1.6rem;font-weight:900;color:var(--tinta);line-height:1}
 
 /* ---------------------------------------------------------------- hero -- */
 .hero{position:relative;background:var(--base-3);min-height:440px;overflow:hidden}

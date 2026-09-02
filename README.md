@@ -74,12 +74,13 @@ são idempotentes.
 
 **Depois**, rode também, na ordem do número, os arquivos `supabase/0005` em
 diante — equipe pelo painel, fechamento das funções internas, número de peito,
-personalização, e as travas `0012` (enxurrada de inscrições), `0013`
+personalização, as travas `0012` (enxurrada de inscrições), `0013`
 (pendências que vencem) e `0014` (fecha a função do `0013` para quem não tem
-conta — precisa vir depois do `0013`). Todos são idempotentes e cada um termina
-com "Success". O `0013` tenta ligar o `pg_cron` sozinho; se aparecer um aviso
-pedindo para ligá-lo em **Database › Extensions**, ligue e rode o `0013` de
-novo.
+conta — precisa vir depois do `0013`), e `0015` (tabela da cobrança Pix
+automática — ver "Confirmação automática do pagamento" mais abaixo). Todos são
+idempotentes e cada um termina com "Success". O `0013` tenta ligar o `pg_cron`
+sozinho; se aparecer um aviso pedindo para ligá-lo em **Database › Extensions**,
+ligue e rode o `0013` de novo.
 
 ### 3. Ligar o login por e-mail
 
@@ -256,6 +257,23 @@ primeiros saem destacados em amarelo, e a página tem botão de imprimir.
 > inscritos, que continua trancada. Se algum participante pedir para não
 > aparecer, é só não incluir a linha dele na colagem.
 
+### Comodidades do dia a dia
+
+- **Tema claro/escuro** — o botão 🌓 no topo alterna e lembra a escolha; sem
+  escolha, segue o tema do aparelho.
+- **Compartilhar e agenda** — na página do evento, botões para mandar o convite
+  pelo WhatsApp, salvar a data na agenda (Google Calendar no celular, arquivo
+  `.ics` no computador) e abrir o local no mapa.
+- **Certificado** — na classificação publicada, cada atleta tem um botão que
+  abre um certificado pronto para imprimir ou salvar em PDF.
+- **Busca na lista de inscritos** — o campo acima da tabela do painel filtra por
+  nome, número de peito, código, situação ou e-mail enquanto você digita.
+- **Barra de ocupação** — cada evento do painel mostra quantas das vagas já
+  foram tomadas.
+- **Instalável** — pelo `site/manifest.webmanifest`, o navegador oferece
+  "adicionar à tela inicial" com o ícone do site. Não há cache offline: o site
+  sempre carrega a versão do ar, para nunca mostrar dados velhos.
+
 ## Testes
 
 ```bash
@@ -290,17 +308,63 @@ dias de pouca atividade, e sem ela o site sairia do ar justamente entre o cartaz
 ser colado e as inscrições abrirem. O Actions é gratuito e sem limite de minutos
 em repositório público, então isso não custa nada.
 
-## O que ainda é manual
+## Confirmação automática do pagamento
 
-A confirmação do pagamento. O Pix gerado é o padrão do Banco Central e cai
-direto na conta, mas sem um gateway o banco não avisa o site que o dinheiro
-entrou — alguém confere o extrato e clica em **Marcar pago**. Para automatizar
-seria preciso contratar um gateway (Mercado Pago, Asaas, Efí) e um endpoint que
-receba o aviso deles; dá para acrescentar depois sem refazer nada do que está
-aqui.
+Quando as variáveis `MERCADOPAGO_*` e `SUPABASE_*` estão preenchidas na Netlify,
+o site deixa de depender de alguém conferir o extrato:
 
-Antes de divulgar, teste a cobrança com valor pequeno lendo o QR no app do banco
-e conferindo se o nome do recebedor aparece certo.
+1. O inscrito abre **Ver o Pix**. A função `criar-cobranca-pix` cria um
+   pagamento Pix no [Mercado Pago](https://www.mercadopago.com.br/developers)
+   (`POST /v1/payments`, `payment_method_id: "pix"`) com o valor exato da
+   inscrição e prazo de ~35 minutos, e guarda a cobrança na tabela
+   `pix_cobrancas` (`supabase/0015`). O QR (imagem e "copia e cola") vem na
+   resposta. O *access token* nunca passa pelo navegador — vive só nas
+   variáveis de ambiente da função.
+2. A pessoa paga pelo app do banco.
+3. O Mercado Pago chama a função `webhook-mercadopago-pix`. Ela **não confia no
+   aviso**: consulta o pagamento direto no Mercado Pago (`GET /v1/payments/{id}`)
+   e só aceita quando `status` é `approved`, o `external_reference` é o da nossa
+   cobrança e o valor bate exatamente. Se o segredo do webhook estiver
+   configurado, ainda confere a assinatura `x-signature`. Aí marca a cobrança e
+   a inscrição como **pagas**, numa operação que ignora reentregas do mesmo
+   evento.
+4. A tela de *Minhas inscrições*, que já se atualiza sozinha a cada 20 s, mostra
+   **paga** e o aviso "Pagamento confirmado!".
+
+O botão **Marcar pago** do painel continua existindo como reserva — para um Pix
+feito fora do QR, ou enquanto o Mercado Pago não estiver configurado. Sem as
+variáveis, o site volta sozinho ao fluxo antigo (QR estático + confirmação
+manual).
+
+### Ligar (uma vez)
+
+1. **Conta no Mercado Pago.** Crie uma aplicação em
+   *Seus negócios › Configurações › Gestão e desenvolvimento › Suas
+   integrações* e pegue o **Access token**. Há um de **teste** (começa com
+   `TEST-`) e um de **produção** (`APP_USR-`); comece pelo de teste, com
+   *usuários de teste* (comprador e vendedor) para pagar sem dinheiro real.
+2. **Rode `supabase/0015`** no SQL Editor do Supabase (cria `pix_cobrancas`).
+3. **Variáveis de ambiente na Netlify** (*Site settings › Environment
+   variables*):
+   - `SUPABASE_URL` — o mesmo endereço do `config.js`
+   - `SUPABASE_SERVICE_ROLE_KEY` — em *Supabase › Project Settings › API*
+     (**é segredo**: nunca vai para o `config.js` nem para o Git)
+   - `MERCADOPAGO_ACCESS_TOKEN` — o token de teste (depois troque pelo de
+     produção) — **é segredo**
+   - `MERCADOPAGO_WEBHOOK_SECRET` — opcional: a *assinatura secreta* que o
+     Mercado Pago mostra ao configurar Webhooks; liga a conferência do
+     `x-signature`
+   - `SITE_URL` — opcional: só se o endereço público não for o que a Netlify já
+     expõe em `URL`
+4. **Configure o Webhook** no painel do Mercado Pago (*Suas integrações › a sua
+   aplicação › Webhooks*): URL
+   `https://SEU-SITE/.netlify/functions/webhook-mercadopago-pix`, evento
+   **Pagamentos**. A função também recebe a `notification_url` que ela mesma
+   manda em cada cobrança, então isso é reforço.
+
+Antes de divulgar, faça uma inscrição de teste e pague (com usuário de teste no
+sandbox, ou com valor pequeno na produção): confira que o nome do recebedor
+aparece certo e que a inscrição vira **paga** sozinha em menos de um minuto.
 
 ## Sobre a LGPD
 
@@ -321,6 +385,7 @@ conta.
 ```
 configurar.mjs                                  escreve o config.js e testa a instalação
 testes/pix-e-qr.mjs                             confere o código Pix e o QR Code
+testes/webhook-mercadopago.mjs                  confere as regras da confirmação automática
 testes/seguranca.mjs                            bateria de segurança, roda sem navegador
 .github/workflows/vigia.yml                     testes automáticos e antipausa do banco
 supabase/0000_tudo.sql                          os três arquivos abaixo juntos, para colar de uma vez
@@ -332,8 +397,13 @@ supabase/0006_fechar_funcoes_internas.sql       tira as funções internas do al
 supabase/0012_limite_de_inscricoes.sql          trava contra enxurrada de inscrições não pagas
 supabase/0013_expirar_pendencias.sql            cancela pendências vencidas e devolve a vaga
 supabase/0014_fechar_expirar_pendencias.sql     tira a função do 0013 do alcance de quem não tem conta
-netlify.toml                                    cabeçalhos de segurança e Content-Security-Policy
+supabase/0015_pix_mercadopago.sql               tabela da cobrança Pix automática (Mercado Pago)
+netlify/functions/criar-cobranca-pix.mjs        gera o QR Pix dinâmico da inscrição pendente
+netlify/functions/webhook-mercadopago-pix.mjs   recebe o aviso de Pix pago e confirma a inscrição
+netlify/functions/_mercadopago.mjs              regras puras compartilhadas pelas duas funções
+netlify.toml                                    cabeçalhos de segurança, CSP e as funções de servidor
 site/index.html                                 estrutura da página
+site/manifest.webmanifest                       deixa o site instalável (ícone na tela inicial)
 site/estilo.css                                 identidade visual (claro e escuro)
 site/app.js                                     telas e interações
 site/api.js                                     conversa com o Supabase

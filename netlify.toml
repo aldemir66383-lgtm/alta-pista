@@ -5,6 +5,17 @@
   publish = "site"
   command = ""
 
+# Funcoes de servidor (a unica parte que nao e estatica): recebem o pagamento
+# pelo Mercado Pago sem expor nenhuma chave ao navegador.
+#   criar-cobranca-pix       gera o QR Pix dinamico da inscricao pendente
+#   webhook-mercadopago-pix  recebe o aviso de Pix pago e confirma a inscricao
+# Precisam das variaveis de ambiente MERCADOPAGO_* e SUPABASE_* no painel da
+# Netlify (Site settings > Environment variables). Sem elas, o site cai
+# sozinho na cobranca manual antiga.
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
 # Cabecalhos de seguranca do site publicado.
 #
 # A Content-Security-Policy e a linha de defesa se algum dia entrar um erro de

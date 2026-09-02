@@ -1,0 +1,26 @@
+{
+  "name": "Alta-Pista · Inscrições Esportivas",
+  "short_name": "Alta-Pista",
+  "description": "Inscrições, edital, números de peito e resultados para corridas e eventos esportivos.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0B1B2B",
+  "theme_color": "#0B1B2B",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/icone-32.png",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icone-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
