@@ -15,8 +15,14 @@ function ambiente() {
 }
 
 function urlDoSite(request) {
-  const base = process.env.SITE_URL || process.env.URL || new URL(request.url).origin;
-  return base.replace(/\/$/, "");
+  // Ordem: um override manual; a Vercel (domínio de produção estável); a
+  // Netlify; e, por último, a origem do próprio pedido. O que importa é o
+  // endereço público onde o Mercado Pago vai bater com o aviso de pagamento.
+  if (process.env.SITE_URL) return process.env.SITE_URL.replace(/\/$/, "");
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL)
+    return "https://" + process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  if (process.env.URL) return process.env.URL.replace(/\/$/, "");
+  try { return new URL(request.url).origin; } catch { return ""; }
 }
 
 export default async request => {
@@ -70,7 +76,7 @@ export default async request => {
         payment_method_id: "pix",
         date_of_expiration: expiraEm.toISOString().replace("Z", "-00:00"),
         external_reference: correlationId,
-        notification_url: urlDoSite(request) + "/.netlify/functions/webhook-mercadopago-pix",
+        notification_url: urlDoSite(request) + "/api/webhook-mercadopago-pix",
         payer: { email: auth.user.email }
       })
     });

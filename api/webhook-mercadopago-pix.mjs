@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { idDoPagamento, avaliarPagamento, assinaturaConfere } from "./_mercadopago.mjs";
+import { idDoPagamento, avaliarPagamento, assinaturaConfere } from "../lib/mercadopago.mjs";
 
 const ok = (body, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }
@@ -10,7 +10,10 @@ export default async request => {
   if (request.method !== "POST") return ok({ error: "Método não permitido." }, 405);
 
   try {
-    const query = Object.fromEntries(new URL(request.url).searchParams.entries());
+    // base fixa só para o parser aceitar `request.url` seja ele absoluto
+    // (Vercel/Netlify) ou só o caminho.
+    const query = Object.fromEntries(
+      new URL(request.url, "http://local").searchParams.entries());
     const body = await request.json().catch(() => ({}));
 
     const dataId = idDoPagamento({ body, query });

@@ -37,8 +37,8 @@ Na prática:
   sozinhas, devolvendo a vaga para a fila (`supabase/0013`).
 - **Nada de código de fora.** O site não importa nenhum JavaScript de CDN: a
   biblioteca do Supabase é uma cópia local em `site/vendor/`. Um `Content-
-  Security-Policy` no `netlify.toml` manda o navegador só executar script do
-  próprio site e só conversar com o Supabase.
+  Security-Policy` (no `vercel.json`, e no `netlify.toml` de reserva) manda o
+  navegador só executar script do próprio site e só conversar com o Supabase.
 
 A `anon key` que fica no `config.js` é pública por natureza e não é um segredo.
 A que **nunca** pode aparecer no site é a `service_role`: ela ignora todas as
@@ -164,18 +164,29 @@ preencha os dois campos.
 
 ### 5. Publicar
 
-Qualquer hospedagem de site estático serve, porque não existe servidor para
-rodar. A mais simples:
+O site é quase todo estático (pasta `site/`), mas tem **duas funções de
+servidor** em `api/` para a cobrança automática por Pix (ver "Confirmação
+automática do pagamento"). Por isso a publicação é feita na **Vercel**, a partir
+do GitHub:
 
-1. Entre em <https://app.netlify.com/drop>.
-2. Arraste a pasta `site` inteira para a página.
-3. Copie o endereço que ele gerar e volte no passo 3 para colocá-lo em
-   **Site URL** e **Redirect URLs** do Supabase.
+1. Entre em <https://vercel.com> com a conta do GitHub (plano gratuito).
+2. **Add New… › Project** e importe o repositório `aldemir66383-lgtm/alta-pista`.
+3. Em *Framework Preset* escolha **Other**; não mexa em build nem em output —
+   o `vercel.json` já diz que a pasta pública é `site/` e que `api/` são
+   funções.
+4. **Deploy.** A Vercel gera um endereço `…vercel.app`.
+5. Copie esse endereço e ponha em **Site URL** e **Redirect URLs** do Supabase
+   (Authentication › URL Configuration).
+
+O `vercel.json` também leva os cabeçalhos de segurança e a Content-Security-
+Policy (antes só no `netlify.toml`), e mantém `/.netlify/functions/*` valendo
+como atalho para `/api/*`. O `netlify.toml` fica no repositório só como reserva,
+caso um dia volte para a Netlify.
 
 Para testar na sua máquina antes:
 
 ```bash
-npx serve site
+npx serve site      # só as páginas; as funções de pagamento não rodam assim
 ```
 
 ### 6. Virar organizador
@@ -310,7 +321,7 @@ em repositório público, então isso não custa nada.
 
 ## Confirmação automática do pagamento
 
-Quando as variáveis `MERCADOPAGO_*` e `SUPABASE_*` estão preenchidas na Netlify,
+Quando as variáveis `MERCADOPAGO_*` e `SUPABASE_*` estão preenchidas na Vercel,
 o site deixa de depender de alguém conferir o extrato:
 
 1. O inscrito abre **Ver o Pix**. A função `criar-cobranca-pix` cria um
@@ -344,21 +355,22 @@ manual).
    `TEST-`) e um de **produção** (`APP_USR-`); comece pelo de teste, com
    *usuários de teste* (comprador e vendedor) para pagar sem dinheiro real.
 2. **Rode `supabase/0015`** no SQL Editor do Supabase (cria `pix_cobrancas`).
-3. **Variáveis de ambiente na Netlify** (*Site settings › Environment
-   variables*):
+3. **Variáveis de ambiente na Vercel** (*Project › Settings › Environment
+   Variables*):
    - `SUPABASE_URL` — o mesmo endereço do `config.js`
-   - `SUPABASE_SERVICE_ROLE_KEY` — em *Supabase › Project Settings › API*
-     (**é segredo**: nunca vai para o `config.js` nem para o Git)
+   - `SUPABASE_SERVICE_ROLE_KEY` — a *secret key* em *Supabase › Project
+     Settings › API Keys* (**é segredo**: nunca vai para o `config.js` nem para
+     o Git)
    - `MERCADOPAGO_ACCESS_TOKEN` — o token de teste (depois troque pelo de
      produção) — **é segredo**
    - `MERCADOPAGO_WEBHOOK_SECRET` — opcional: a *assinatura secreta* que o
      Mercado Pago mostra ao configurar Webhooks; liga a conferência do
      `x-signature`
-   - `SITE_URL` — opcional: só se o endereço público não for o que a Netlify já
-     expõe em `URL`
+   - `SITE_URL` — opcional: só se o endereço público não for o domínio de
+     produção que a Vercel já expõe
 4. **Configure o Webhook** no painel do Mercado Pago (*Suas integrações › a sua
    aplicação › Webhooks*): URL
-   `https://SEU-SITE/.netlify/functions/webhook-mercadopago-pix`, evento
+   `https://SEU-SITE/api/webhook-mercadopago-pix`, evento
    **Pagamentos**. A função também recebe a `notification_url` que ela mesma
    manda em cada cobrança, então isso é reforço.
 
@@ -398,10 +410,11 @@ supabase/0012_limite_de_inscricoes.sql          trava contra enxurrada de inscri
 supabase/0013_expirar_pendencias.sql            cancela pendências vencidas e devolve a vaga
 supabase/0014_fechar_expirar_pendencias.sql     tira a função do 0013 do alcance de quem não tem conta
 supabase/0015_pix_mercadopago.sql               tabela da cobrança Pix automática (Mercado Pago)
-netlify/functions/criar-cobranca-pix.mjs        gera o QR Pix dinâmico da inscrição pendente
-netlify/functions/webhook-mercadopago-pix.mjs   recebe o aviso de Pix pago e confirma a inscrição
-netlify/functions/_mercadopago.mjs              regras puras compartilhadas pelas duas funções
-netlify.toml                                    cabeçalhos de segurança, CSP e as funções de servidor
+api/criar-cobranca-pix.mjs                      gera o QR Pix dinâmico da inscrição pendente
+api/webhook-mercadopago-pix.mjs                 recebe o aviso de Pix pago e confirma a inscrição
+lib/mercadopago.mjs                             regras puras compartilhadas pelas duas funções
+vercel.json                                     pasta pública, funções, cabeçalhos de segurança e CSP
+netlify.toml                                    mesma configuração para a Netlify (reserva)
 site/index.html                                 estrutura da página
 site/manifest.webmanifest                       deixa o site instalável (ícone na tela inicial)
 site/estilo.css                                 identidade visual (claro e escuro)

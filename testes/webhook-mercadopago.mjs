@@ -9,7 +9,7 @@
 //   node testes/webhook-mercadopago.mjs
 
 import crypto from "node:crypto";
-import { idDoPagamento, avaliarPagamento, assinaturaConfere } from "../netlify/functions/_mercadopago.mjs";
+import { idDoPagamento, avaliarPagamento, assinaturaConfere } from "../lib/mercadopago.mjs";
 
 const verde = t => "\x1b[32m" + t + "\x1b[0m";
 const vermelho = t => "\x1b[31m" + t + "\x1b[0m";

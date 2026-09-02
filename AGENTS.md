@@ -4,9 +4,10 @@ Site de inscrições e pagamento por Pix para as corridas e eventos da escola.
 Site estático em `site/` (HTML, CSS e JavaScript puro, sem build), com Supabase
 como banco. O SQL das tabelas, políticas e funções está em `supabase/`.
 
-Publicado na Netlify a partir do GitHub
-(`aldemir66383-lgtm/alta-pista`), servindo a pasta `site`. **Este repositório
-precisa continuar separado dos outros projetos por causa disso.**
+Publicado na Vercel a partir do GitHub (`aldemir66383-lgtm/alta-pista`):
+páginas em `site/`, funções de servidor em `api/`, configuração em `vercel.json`
+(o `netlify.toml` fica como reserva). **Este repositório precisa continuar
+separado dos outros projetos por causa disso.**
 
 ## Como o usuário trabalha
 
