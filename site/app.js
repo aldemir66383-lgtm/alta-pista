@@ -65,6 +65,182 @@ const rotuloStatus = s => ({
 }[s] || s);
 const classeStatus = s => s === "cancelada" ? "cancelado" : s;
 
+/* Contagem regressiva para a data da corrida */
+function diasAte(iso) {
+  if (!iso) return null;
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const [a, m, d] = iso.split("-").map(Number);
+  const data = new Date(a, m - 1, d);
+  data.setHours(0, 0, 0, 0);
+  const diff = Math.round((data - hoje) / (1000 * 60 * 60 * 24));
+  if (diff < 0) return { texto: "Concluído", classe: "passou", diff };
+  if (diff === 0) return { texto: "🏁 É hoje!", classe: "hoje", diff };
+  if (diff === 1) return { texto: "🔥 É amanhã!", classe: "amanha", diff };
+  return { texto: "⏳ Faltam " + diff + " dias", classe: "futuro", diff };
+}
+
+/* Acha o objeto do evento pelo slug, olhando tudo o que já está carregado:
+   a tela de evento aberta, a lista pública, as inscrições da pessoa e a tela
+   de resultados. Evita uma ida ao banco só para compartilhar ou salvar na
+   agenda. */
+function eventoPorSlug(slug) {
+  if (!slug) return null;
+  if (estado.evento && estado.evento.slug === slug) return estado.evento;
+  const naLista = (estado.eventos || []).find(e => e.slug === slug);
+  if (naLista) return naLista;
+  const naMinha = (estado.minhas || []).map(i => i.eventos).find(e => e && e.slug === slug);
+  if (naMinha) return naMinha;
+  if (estado.resultados.evento && estado.resultados.evento.slug === slug) return estado.resultados.evento;
+  return null;
+}
+
+/* Salvar na agenda (Google Calendar e arquivo .ics para Apple/Outlook) */
+function linkGoogleCalendar(ev) {
+  if (!ev.data) return "#";
+  const [a, m, d] = ev.data.split("-");
+  const horaStr = (ev.hora || "07:00").replace(":", "") + "00";
+  const inicio = `${a}${m}${d}T${horaStr}`;
+  const fimHora = String(Math.min(23, Number((ev.hora || "07:00").slice(0, 2)) + 3)).padStart(2, "0") + "0000";
+  const fim = `${a}${m}${d}T${fimHora}`;
+  const titulo = encodeURIComponent(ev.nome || "Corrida");
+  const local = encodeURIComponent([ev.local, cidadeUF(ev)].filter(Boolean).join(", "));
+  const detalhes = encodeURIComponent(`Inscrições e informações: ${window.location.origin}/#evento=${ev.slug}`);
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${titulo}&dates=${inicio}/${fim}&details=${detalhes}&location=${local}`;
+}
+
+function gerarICS(ev) {
+  if (!ev.data) return;
+  const [a, m, d] = ev.data.split("-");
+  const horaStr = (ev.hora || "07:00").replace(":", "") + "00";
+  const inicio = `${a}${m}${d}T${horaStr}`;
+  const fimHora = String(Math.min(23, Number((ev.hora || "07:00").slice(0, 2)) + 3)).padStart(2, "0") + "0000";
+  const fim = `${a}${m}${d}T${fimHora}`;
+  const ics = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Alta-Pista//Eventos//PT-BR",
+    "BEGIN:VEVENT",
+    `SUMMARY:${ev.nome}`,
+    `DESCRIPTION:Informações e inscrições: ${window.location.origin}/#evento=${ev.slug}`,
+    `LOCATION:${[ev.local, cidadeUF(ev)].filter(Boolean).join(", ")}`,
+    `DTSTART:${inicio}`,
+    `DTEND:${fim}`,
+    "STATUS:CONFIRMED",
+    "END:VEVENT",
+    "END:VCALENDAR"
+  ].join("\r\n");
+  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${ev.slug || "evento"}.ics`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* Compartilhamento direto no WhatsApp ou no menu nativo */
+async function compartilharEvento(ev) {
+  const url = `${window.location.origin}/#evento=${encodeURIComponent(ev.slug)}`;
+  const texto = `🏃‍♂️ Participe da prova "${ev.nome}"!\n📅 Data: ${dataLonga(ev.data)}${ev.hora ? " às " + hora(ev.hora) : ""}\n📍 Local: ${ev.local || "A definir"} ${cidadeUF(ev) ? "— " + cidadeUF(ev) : ""}\n🔗 Inscreva-se: ${url}`;
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: ev.nome, text: texto, url });
+      return;
+    } catch (e) { /* continua no WhatsApp */ }
+  }
+  const zapUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
+  window.open(zapUrl, "_blank", "noopener,noreferrer");
+}
+
+/* Certificado de Conclusão / Participação em SVG de alta qualidade */
+function gerarCertificadoSVG(d) {
+  const largura = 1000;
+  const altura = 700;
+  const id = estado.identidade || {};
+  const org = esc(d.organizacao || id.nome_site || "Alta-Pista");
+  const evento = esc(d.evento || "Corrida");
+  const atleta = esc(d.atleta || "Participante");
+  const percurso = esc(d.percurso || "Percurso oficial");
+  const tempo = esc(d.tempo || "—");
+  const pos = d.posicao != null ? `${d.posicao}º Lugar` : "Concluinte";
+  const data = esc(d.data || "2026");
+  const local = esc(d.local || "");
+
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">` +
+    `<title>Certificado - ${atleta}</title><style>` +
+    `@page { size: A4 landscape; margin: 0; }` +
+    `body { margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #0B1B2B; font-family: 'Helvetica Neue', Arial, sans-serif; }` +
+    `svg { width: 100%; max-width: 960px; height: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.5); background: #fff; }` +
+    `@media print { body { background: #fff; min-height: auto; } svg { box-shadow: none; width: 100%; height: 100%; } .no-print { display: none; } }` +
+    `</style></head><body>` +
+    `<div class="no-print" style="position:fixed;top:16px;right:16px;z-index:99;display:flex;gap:8px">` +
+    `<button onclick="window.print()" style="padding:10px 18px;background:#C6F24E;border:0;font-weight:bold;cursor:pointer;border-radius:4px;color:#0B1B2B;font-size:14px">🖨️ Imprimir / Salvar PDF</button>` +
+    `</div>` +
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${largura} ${altura}">` +
+    `<rect width="${largura}" height="${altura}" fill="#FAFBFD"/>` +
+    `<rect x="24" y="24" width="${largura - 48}" height="${altura - 48}" fill="none" stroke="#0B1B2B" stroke-width="4"/>` +
+    `<rect x="32" y="32" width="${largura - 64}" height="${altura - 64}" fill="none" stroke="#C6F24E" stroke-width="2"/>` +
+    `<circle cx="500" cy="90" r="36" fill="#0B1B2B"/>` +
+    `<text x="500" y="98" text-anchor="middle" font-size="20" font-weight="900" fill="#C6F24E">AP</text>` +
+    `<text x="500" y="156" text-anchor="middle" font-size="14" font-weight="700" letter-spacing="4" fill="#6A8095" text-transform="uppercase">${org}</text>` +
+    `<text x="500" y="210" text-anchor="middle" font-size="34" font-weight="900" letter-spacing="3" fill="#0B1B2B" text-transform="uppercase">CERTIFICADO DE CONCLUSÃO</text>` +
+    `<text x="500" y="250" text-anchor="middle" font-size="16" fill="#4E6274">Certificamos com orgulho que o(a) atleta</text>` +
+    `<text x="500" y="310" text-anchor="middle" font-size="34" font-weight="800" fill="#0B1B2B" text-transform="uppercase">${atleta}</text>` +
+    `<line x1="250" y1="330" x2="750" y2="330" stroke="#BAC6D0" stroke-width="1"/>` +
+    `<text x="500" y="370" text-anchor="middle" font-size="16" fill="#4E6274">concluiu com êxito a sua participação na prova oficial</text>` +
+    `<text x="500" y="415" text-anchor="middle" font-size="26" font-weight="800" fill="#0B1B2B">${evento}</text>` +
+    `<rect x="180" y="455" width="640" height="90" rx="8" fill="#F0F4F8" stroke="#D6DEE5"/>` +
+    `<text x="280" y="488" text-anchor="middle" font-size="12" font-weight="700" letter-spacing="1" fill="#8496A5">PERCURSO</text>` +
+    `<text x="280" y="520" text-anchor="middle" font-size="20" font-weight="800" fill="#0B1B2B">${percurso}</text>` +
+    `<line x1="390" y1="465" x2="390" y2="535" stroke="#D6DEE5"/>` +
+    `<text x="500" y="488" text-anchor="middle" font-size="12" font-weight="700" letter-spacing="1" fill="#8496A5">TEMPO OFICIAL</text>` +
+    `<text x="500" y="520" text-anchor="middle" font-size="20" font-weight="800" fill="#0B1B2B">${tempo}</text>` +
+    `<line x1="610" y1="465" x2="610" y2="535" stroke="#D6DEE5"/>` +
+    `<text x="720" y="488" text-anchor="middle" font-size="12" font-weight="700" letter-spacing="1" fill="#8496A5">CLASSIFICAÇÃO</text>` +
+    `<text x="720" y="520" text-anchor="middle" font-size="20" font-weight="800" fill="#0B1B2B">${pos}</text>` +
+    `<text x="500" y="600" text-anchor="middle" font-size="14" fill="#4E6274">${[local, data].filter(Boolean).join(" · ")}</text>` +
+    `<text x="500" y="635" text-anchor="middle" font-size="11" letter-spacing="1" fill="#8496A5">CRONOMETRAGEM & REGISTRO OFICIAL ALTA-PISTA</text>` +
+    `</svg></body></html>`;
+}
+
+function abrirCertificado(dados) {
+  const html = gerarCertificadoSVG(dados);
+  const win = window.open("", "_blank");
+  if (!win) { torrar("Libere os pop-ups para ver o certificado."); return; }
+  win.document.write(html);
+  win.document.close();
+}
+
+/* Gerenciamento de Tema Claro e Escuro */
+function iniciarTema() {
+  const salvo = localStorage.getItem("tema");
+  if (salvo) {
+    document.documentElement.setAttribute("data-theme", salvo);
+  }
+  atualizarIconeTema();
+}
+
+function alternarTema() {
+  const atual = document.documentElement.getAttribute("data-theme") ||
+    (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const novo = atual === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", novo);
+  localStorage.setItem("tema", novo);
+  atualizarIconeTema();
+  torrar(novo === "dark" ? "Modo escuro ativado" : "Modo claro ativado");
+}
+
+function atualizarIconeTema() {
+  const btn = $("#botao-tema");
+  if (!btn) return;
+  const dark = document.documentElement.getAttribute("data-theme") === "dark" ||
+    (!document.documentElement.getAttribute("data-theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  btn.innerHTML = dark ? "☀️" : "🌙";
+  btn.title = dark ? "Mudar para modo claro" : "Mudar para modo escuro";
+}
+
 /* Edital em texto simples: ## título, - item, **negrito**, parágrafos. */
 function renderEdital(texto) {
   const linhas = String(texto || "").split(/\r?\n/);
@@ -287,6 +463,9 @@ const estado = {
   filtro: { texto: "", categoria: "", cidade: "" },
   resultados: { lista: [], evento: null, linhas: [] },
   painel: { config: null, eventos: [], inscritos: [] },
+  // Taxa de serviço da plataforma, em centavos. Vem do banco (0016) para poder
+  // mudar sem republicar o site; 0 desliga a exibição.
+  taxa: 0,
   destino: null
 };
 let vista = "eventos";
@@ -296,7 +475,7 @@ let vista = "eventos";
 function ir(nome, ctx, atualizarHist = true) {
   vista = nome;
   if (nome !== "eventos") clearInterval(carrosselRelogio); // não roda escondido
-  if (nome !== "minhas") clearInterval(minhasRelogio);     // idem
+  if (nome !== "minhas") { clearInterval(minhasRelogio); clearInterval(pixValidadeRelogio); }
   document.querySelectorAll(".secao").forEach(s => s.classList.remove("ativa"));
   $("#v-" + nome).classList.add("ativa");
   document.querySelectorAll("#menu button").forEach(b => {
@@ -339,7 +518,9 @@ function destinoDoEndereco() {
 async function desenhar(ctx) {
   $("#rodape-assinatura").textContent =
     (estado.organizacao || estado.identidade.nome_site || "Alta-Pista") + " · " + new Date().getFullYear();
-  $("#menu button[data-ir='painel']").hidden = !estado.organizador;
+  // Qualquer pessoa com conta pode publicar o próprio evento, então o Painel
+  // deixou de ser exclusivo da administração: ele mostra a cada um o que é dele.
+  $("#menu button[data-ir='painel']").hidden = !estado.sessao;
   desenharIdentidade();
   if (vista === "eventos") return telaEventos();
   if (vista === "evento") return telaEvento(ctx);
@@ -474,6 +655,7 @@ function heroHTML(lista, naPagina) {
 
 let carrosselRelogio = null;
 let minhasRelogio = null;
+let pixValidadeRelogio = null;
 function ligarCarrossel() {
   clearInterval(carrosselRelogio);
   const caixa = $("#carrossel");
@@ -547,6 +729,7 @@ function cartao(ev) {
   const preco = precoAtual(ev);
   const fechado = !ev.inscricoes_abertas;
   const lotado = semVaga(ev);
+  const contagem = diasAte(ev.data);
   const iniciais = (ev.nome || "?").split(/\s+/).slice(0, 2).map(p => p[0] || "").join("").toUpperCase();
 
   let acao;
@@ -566,6 +749,7 @@ function cartao(ev) {
       (ev.categoria ? '<span class="modalidade">' + esc(ev.categoria) + '</span>' : "") +
     '</div>' +
     '<div class="cartao-corpo">' +
+      (contagem ? '<span class="badge-contagem ' + contagem.classe + '">' + contagem.texto + '</span>' : "") +
       '<h3>' + esc(ev.nome) + '</h3>' +
       '<div class="linhas">' +
         '<span><i>◷</i>' + (ev.hora ? hora(ev.hora) : "Horário a definir") + '</span>' +
@@ -596,6 +780,9 @@ async function telaEvento(slug) {
   const lote = loteAtivo(ev);
   const lotado = semVaga(ev);
   const fechado = !ev.inscricoes_abertas;
+  const contagem = diasAte(ev.data);
+  const linkMaps = "https://www.google.com/maps/search/?api=1&query=" +
+    encodeURIComponent([ev.local, cidadeUF(ev)].filter(Boolean).join(", "));
 
   const tabelaLotes = (ev.lotes || []).length > 1
     ? '<div class="sub"><h4>Lotes</h4><div style="margin-top:6px">' +
@@ -615,17 +802,23 @@ async function telaEvento(slug) {
     '<div class="faixa"><div class="limite">' +
     '<button class="btn fantasma pequeno" data-ir="eventos" style="margin-bottom:18px">← Todos os eventos</button>' +
     '<div class="painel">' +
+      (contagem ? '<span class="badge-contagem ' + contagem.classe + '" style="margin-bottom:8px">' + contagem.texto + '</span>' : "") +
       '<span class="eyebrow">' + (lotado && !fechado ? "Lista de espera" : "Inscrições") + '</span>' +
       '<h2 style="margin-top:4px">' + esc(ev.nome) + '</h2>' +
       (ev.descricao ? '<p style="margin-top:10px;color:var(--tinta-media)">' + esc(ev.descricao) + '</p>' : "") +
-      '<dl style="margin-top:18px">' +
+      '<div class="linha-acoes-evento">' +
+        '<button class="btn fantasma pequeno" data-compartilhar="' + esc(ev.slug) + '">📤 Compartilhar no WhatsApp</button>' +
+        '<button class="btn fantasma pequeno" data-calendario="' + esc(ev.slug) + '">📅 Salvar na agenda</button>' +
+        '<a class="btn fantasma pequeno" href="' + esc(linkMaps) + '" target="_blank" rel="noopener noreferrer">📍 Como chegar (GPS)</a>' +
+      '</div>' +
+      '<dl style="margin-top:14px">' +
         '<div class="linha-dados"><dt>Quando</dt><dd>' + esc(dataLonga(ev.data)) +
           (ev.hora ? " · " + hora(ev.hora) : "") + '</dd></div>' +
         '<div class="linha-dados"><dt>Onde</dt><dd>' + esc(ev.local || "A definir") +
           (cidadeUF(ev) ? " — " + esc(cidadeUF(ev)) : "") + '</dd></div>' +
         (ev.distancias ? '<div class="linha-dados"><dt>Percursos</dt><dd>' + esc(ev.distancias) + '</dd></div>' : "") +
         '<div class="linha-dados"><dt>Valor' + (lote && ev.lotes.length > 1 ? " · " + esc(lote.nome) : "") +
-          '</dt><dd class="mono">' + (precoAtual(ev) > 0 ? dinheiro(precoAtual(ev)) : "Gratuito") + '</dd></div>' +
+          '</dt><dd class="mono">' + valorComTaxa(precoAtual(ev)) + '</dd></div>' +
         (rest != null ? '<div class="linha-dados"><dt>Vagas restantes</dt><dd class="mono">' + rest + '</dd></div>' : "") +
         (ev.na_fila ? '<div class="linha-dados"><dt>Na lista de espera</dt><dd class="mono">' + ev.na_fila + '</dd></div>' : "") +
       '</dl>' + tabelaLotes +
@@ -888,6 +1081,10 @@ async function telaInscricao() {
           '<label>Observação <span class="dica">opcional</span>' +
             '<input name="observacao" placeholder="Algo que a organização precisa saber"></label>' +
         '</div>' +
+        (precoAtual(ev) > 0 && estado.taxa > 0 && !lotado
+          ? '<div class="linha-dados" style="margin-top:16px;border-top:1px solid var(--borda);padding-top:14px">' +
+              '<dt>Total a pagar</dt><dd class="mono">' + valorComTaxa(precoAtual(ev)) + '</dd></div>'
+          : "") +
         '<div class="acoes">' +
           '<button class="btn" type="submit" id="botao-enviar">' +
             (lotado ? "Entrar na lista de espera" : precoAtual(ev) > 0 ? "Gerar meu Pix" : "Confirmar inscrição") +
@@ -978,12 +1175,17 @@ async function telaMinhas() {
         (i.eh_titular ? "" : ' <span class="tag espera" style="margin-left:6px">dependente</span>') + '</h3></div>' +
         '<span class="tag ' + classeStatus(i.status) + '">' + rotuloStatus(i.status) + '</span>' +
       '</div>' +
+      (i.numero != null
+        ? '<div class="mini-peito-cartao">' +
+            '<div><span style="font-size:.7rem;text-transform:uppercase;color:var(--tinta-fraca);display:block">Número Oficial</span>' +
+            '<span class="num">' + formatarNumero(i.numero, (i.eventos || {}).numero_digitos) + '</span></div>' +
+            '<div style="margin-left:auto;display:flex;gap:6px">' +
+              '<button class="btn pequeno" data-peito="' + i.id + '">🖨️ Imprimir folha</button>' +
+            '</div>' +
+          '</div>'
+        : "") +
       '<dl style="margin-top:14px">' +
-        (i.numero != null
-          ? '<div class="linha-dados"><dt>Número de peito</dt><dd class="mono">' +
-            '<b style="font-size:1.5em">' +
-            formatarNumero(i.numero, (i.eventos || {}).numero_digitos) + '</b></dd></div>' : "") +
-        '<div class="linha-dados"><dt>Código</dt><dd class="mono">' + esc(i.codigo) + '</dd></div>' +
+        '<div class="linha-dados"><dt>Código da inscrição</dt><dd class="mono">' + esc(i.codigo) + '</dd></div>' +
         '<div class="linha-dados"><dt>Valor' + (i.lote_nome ? " · " + esc(i.lote_nome) : "") +
           '</dt><dd class="mono">' + (i.valor_centavos > 0 ? dinheiro(i.valor_centavos) : "Gratuito") + '</dd></div>' +
         (ev.data ? '<div class="linha-dados"><dt>Quando</dt><dd>' + esc(dataLonga(ev.data)) +
@@ -993,7 +1195,7 @@ async function telaMinhas() {
       '<div id="pix-' + i.id + '"></div>' +
       '<div class="acoes">' +
         (i.status === "pendente" ? '<button class="btn" data-pix="' + i.id + '">Ver o Pix</button>' : "") +
-        (i.numero != null ? '<button class="btn" data-peito="' + i.id + '">Imprimir meu número</button>' : "") +
+        (ev.data ? '<button class="btn fantasma pequeno" data-calendario="' + esc(ev.slug) + '">📅 Salvar na agenda</button>' : "") +
         (i.status !== "pago" && i.status !== "cancelada"
           ? '<button class="btn perigo pequeno" data-cancelar="' + i.id + '">Cancelar inscrição</button>' : "") +
       '</div></div>';
@@ -1041,6 +1243,7 @@ function vigiarPendentes() {
 async function mostrarPix(id) {
   const alvo = $("#pix-" + id);
   if (!alvo) return;
+  clearInterval(pixValidadeRelogio);
   alvo.innerHTML = '<p class="carregando">Gerando a cobrança…</p>';
   let dados;
   try { dados = await api.cobranca(id); }
@@ -1050,9 +1253,34 @@ async function mostrarPix(id) {
       'Sua inscrição está registrada; procure a organização para combinar o pagamento.</span></div>';
     return;
   }
-  const payload = Pix.brcode(dados);
+
+  // A cobrança pode vir de duas origens:
+  //  - gateway automático (Mercado Pago): já traz o "copia e cola" pronto em
+  //    payload_pix e um prazo de validade em expira_em; o pagamento é
+  //    confirmado sozinho pelo webhook, sem ninguém conferir extrato.
+  //  - função cobranca() do banco (reserva): traz os dados da chave e o código
+  //    é montado aqui; nesse caso a confirmação ainda é manual.
+  const automatico = typeof dados.payload_pix === "string" && dados.payload_pix.length > 0;
+  const payload = automatico ? dados.payload_pix : Pix.brcode(dados);
+
   let qr = "";
   try { qr = QR.svg(payload, 3); } catch (e) { qr = ""; }
+  if (!qr && automatico && dados.qrCodeImageBase64)
+    qr = '<img alt="QR Code do Pix" src="data:image/png;base64,' + esc(dados.qrCodeImageBase64) + '">';
+
+  const expiraEm = automatico && dados.expira_em ? new Date(dados.expira_em).getTime() : 0;
+  const idContador = "pix-conta-" + id;
+
+  const rodape = automatico
+    ? '<p style="font-size:.82rem;color:var(--tinta-fraca)">Depois de pagar, <b>não precisa ' +
+      'fazer mais nada</b>: a confirmação é automática e costuma levar menos de um minuto. ' +
+      'Esta tela muda sozinha para <b>paga</b> — pode deixá-la aberta.' +
+      (expiraEm ? ' <span id="' + idContador + '"></span>' : "") + '</p>'
+    : '<p style="font-size:.82rem;color:var(--tinta-fraca)">Depois de pagar, <b>não precisa ' +
+      'fazer mais nada</b>: a organização confere o recebimento e confirma em até 24 horas. ' +
+      'Quando isso acontecer, esta tela muda sozinha para <b>paga</b> — pode deixá-la aberta, ' +
+      'ou voltar aqui depois pelo menu Minhas inscrições.</p>';
+
   alvo.innerHTML =
     '<div class="pagamento" style="margin-top:18px">' +
       (qr ? '<div class="qr-caixa">' + qr + '</div>' : "") +
@@ -1062,12 +1290,36 @@ async function mostrarPix(id) {
         'Abra o app do banco, escolha Pix › Pagar com QR Code e aponte a câmera — ou copie o código.</p></div>' +
         '<div class="copia mono">' + esc(payload) + '</div>' +
         '<div><button class="btn" data-copiar="' + esc(payload) + '">Copiar código Pix</button></div>' +
-        '<p style="font-size:.82rem;color:var(--tinta-fraca)">Depois de pagar, <b>não precisa ' +
-        'fazer mais nada</b>: a organização confere o recebimento e confirma em até 24 horas. ' +
-        'Quando isso acontecer, esta tela muda sozinha para <b>paga</b> — pode deixá-la aberta, ' +
-        'ou voltar aqui depois pelo menu Minhas inscrições.</p>' +
+        rodape +
       '</div>' +
     '</div>';
+
+  if (automatico && expiraEm) vigiarValidadePix(id, expiraEm, idContador);
+}
+
+/**
+ * O QR Code dinâmico do Mercado Pago vale por cerca de meia hora. Enquanto o
+ * quadro do Pix está aberto, mostra quanto ainda falta; quando vence, troca o
+ * texto por um botão que gera outro. Só olha o relógio — não consulta nada.
+ */
+function vigiarValidadePix(id, expiraEm, idContador) {
+  clearInterval(pixValidadeRelogio);
+  const tick = () => {
+    const span = document.getElementById(idContador);
+    if (!span) { clearInterval(pixValidadeRelogio); return; }
+    const resta = Math.round((expiraEm - Date.now()) / 1000);
+    if (resta > 0) {
+      const m = Math.floor(resta / 60), s = resta % 60;
+      span.textContent = " Este código vale por mais " + m + " min " +
+        String(s).padStart(2, "0") + " s.";
+      return;
+    }
+    clearInterval(pixValidadeRelogio);
+    span.innerHTML = ' Este código expirou. ' +
+      '<button class="btn pequeno" data-pix="' + id + '">Gerar novo Pix</button>';
+  };
+  tick();
+  pixValidadeRelogio = setInterval(tick, 1000);
 }
 
 /* =================================================== tela: resultados === */
@@ -1134,7 +1386,8 @@ function desenharClassificacao() {
         (temEquipe ? '<th>Equipe</th>' : "") +
         (temCategoria ? '<th>Categoria</th>' : "") +
         (temPercurso ? '<th>Percurso</th>' : "") +
-        '<th style="text-align:right">Tempo</th></tr></thead><tbody>' +
+        '<th style="text-align:right">Tempo</th>' +
+        '<th style="text-align:right">Certificado</th></tr></thead><tbody>' +
         linhas.map(l => '<tr>' +
           '<td><span class="pos' + (l.posicao && l.posicao <= 3 ? " podio" : "") + '">' +
             (l.posicao != null ? l.posicao + "º" : "—") + '</span></td>' +
@@ -1143,6 +1396,7 @@ function desenharClassificacao() {
           (temCategoria ? '<td>' + esc(l.categoria || "—") + '</td>' : "") +
           (temPercurso ? '<td>' + esc(l.percurso || "—") + '</td>' : "") +
           '<td class="mono" style="text-align:right">' + esc(l.tempo || "—") + '</td>' +
+          '<td style="text-align:right"><button class="btn fantasma micro" data-certificado="' + esc(l.id || l.atleta) + '">Certificado</button></td>' +
         '</tr>').join("") + '</tbody></table></div>' +
         '<div class="acoes"><button class="btn fantasma pequeno" data-imprimir="1">Imprimir ou salvar em PDF</button></div>' +
         '</div>'
@@ -1248,13 +1502,27 @@ function telaEntrar() {
   });
 }
 
+/**
+ * Como o valor aparece para quem vai pagar. A taxa de serviço é somada ao preço
+ * do lote e precisa estar visível ANTES do pagamento — é o que o termo de uso
+ * promete, e é a diferença entre uma taxa combinada e uma surpresa no Pix.
+ * Evento gratuito não tem taxa, então mostra só "Gratuito".
+ */
+function valorComTaxa(preco) {
+  if (!(preco > 0)) return "Gratuito";
+  if (!(estado.taxa > 0)) return dinheiro(preco);
+  return dinheiro(preco + estado.taxa) +
+    ' <span class="dica" style="text-transform:none;letter-spacing:0">(' +
+    dinheiro(preco) + " + " + dinheiro(estado.taxa) + " de taxa de serviço)</span>";
+}
+
 /* ==================================================== tela: painel ====== */
 
 let edLotes = [], edPerguntas = [], edEventoId = null, edCapa = "";
 let edPeitoLogo = "", edPeitoFundo = "";
 
 async function telaPainel() {
-  if (!estado.organizador) { torrar("Área restrita à organização"); return ir("eventos"); }
+  if (!estado.sessao) { guardarDestino("painel"); return ir("entrar"); }
   carregando("#v-painel");
   // Best-effort: devolve as vagas presas em pendências vencidas antes de
   // mostrar os números. Se a função ainda não foi instalada (supabase/0013),
@@ -1277,6 +1545,29 @@ async function telaPainel() {
   const pagos = inscritos.filter(i => i.status === "pago");
   const arrecadado = pagos.reduce((s, i) => s + i.valor_centavos, 0);
 
+  // A lista pública traz "ocupadas" pronta do banco; a do painel não, então
+  // conta aqui pelo mesmo critério (pendente + pago) para a barra de ocupação.
+  const ocupadasPorEvento = {};
+  for (const i of inscritos)
+    if (i.status === "pendente" || i.status === "pago")
+      ocupadasPorEvento[i.evento_id] = (ocupadasPorEvento[i.evento_id] || 0) + 1;
+  eventos.forEach(ev => { ev.ocupadas = ocupadasPorEvento[ev.id] || 0; });
+
+  // Resumo inteligente de tamanhos de camisas e percursos para fornecedores
+  const rotulos = rotulosDasPerguntas();
+  const resumoCamisas = {};
+  const resumoPercursos = {};
+  let kitsEntregues = 0;
+  for (const ins of inscritos) {
+    if (ins.kit_retirado) kitsEntregues++;
+    const cam = respostaSobre(ins.respostas, ["camisa", "camiseta", "tamanho", "blusa"], rotulos);
+    if (cam) resumoCamisas[cam] = (resumoCamisas[cam] || 0) + (ins.status === "pago" ? 1 : 0);
+    const perc = respostaSobre(ins.respostas, ["percurso", "distancia", "distância", "prova", "km"], rotulos);
+    if (perc) resumoPercursos[perc] = (resumoPercursos[perc] || 0) + (ins.status === "pago" ? 1 : 0);
+  }
+  const temCamisas = Object.keys(resumoCamisas).length > 0;
+  const temPercursos = Object.keys(resumoPercursos).length > 0;
+
   let html = '<div class="faixa"><div class="limite">' +
     '<div class="cabeca-secao"><h2>Painel da organização</h2>' +
     '<p>Configure o Pix, publique eventos com edital, importe resultados e confirme pagamentos.</p></div>' +
@@ -1288,7 +1579,26 @@ async function telaPainel() {
       numero(dinheiro(arrecadado), "Confirmado") +
     '</div>';
 
-  html += '<div class="painel"><span class="eyebrow">Marca</span><h3 style="margin-top:4px">Identidade do site</h3>' +
+  if (inscritos.length && (temCamisas || temPercursos || pagos.length)) {
+    html += '<div class="resumo-camisas">' +
+      (temCamisas ? '<div><h4>👕 Pedido de Camisas (Inscrições Pagas)</h4><div class="chips-resumo">' +
+        Object.entries(resumoCamisas).map(([tam, qtd]) =>
+          '<span class="chip-resumo"><span>' + esc(tam) + '</span><strong>' + qtd + '</strong></span>').join("") +
+        '</div></div>' : '') +
+      (temPercursos ? '<div><h4>🏃 Percursos Escolhidos</h4><div class="chips-resumo">' +
+        Object.entries(resumoPercursos).map(([perc, qtd]) =>
+          '<span class="chip-resumo"><span>' + esc(perc) + '</span><strong>' + qtd + '</strong></span>').join("") +
+        '</div></div>' : '') +
+      '<div><h4>📦 Entrega de Kits</h4><div class="chips-resumo">' +
+        '<span class="chip-resumo"><span>Entregues</span><strong>' + kitsEntregues + ' de ' + pagos.length + ' (' +
+        (pagos.length ? Math.round((kitsEntregues / pagos.length) * 100) : 0) + '%)</strong></span>' +
+      '</div></div>' +
+    '</div>';
+  }
+
+  // Só a administração da plataforma: identidade do site, chave da casa e
+  // equipe são globais, não pertencem a quem publica um evento.
+  if (estado.organizador) html += '<div class="painel"><span class="eyebrow">Marca</span><h3 style="margin-top:4px">Identidade do site</h3>' +
     '<p style="color:var(--tinta-media);font-size:.9rem;margin-top:6px">' +
       'O selo do topo, o nome, a cor e os textos do rodapé. Vale para todo mundo assim que salvar.</p>' +
     '<form id="form-identidade"><div class="campos duas">' +
@@ -1316,7 +1626,9 @@ async function telaPainel() {
     '</div>' +
     '<div class="acoes"><button class="btn" type="submit">Salvar identidade</button></div></form></div>';
 
-  html += '<div class="painel"><span class="eyebrow">Recebimento</span><h3 style="margin-top:4px">Dados do Pix</h3>' +
+  // Só a administração da plataforma: identidade do site, chave da casa e
+  // equipe são globais, não pertencem a quem publica um evento.
+  if (estado.organizador) html += '<div class="painel"><span class="eyebrow">Recebimento</span><h3 style="margin-top:4px">Dados do Pix</h3>' +
     '<p style="color:var(--tinta-media);font-size:.9rem;margin-top:6px">' +
       'A chave fica guardada no banco e não é exposta no site: só é usada para montar a cobrança ' +
       'de quem já tem inscrição pendente. Nome e cidade seguem o limite do padrão do Banco Central.</p>' +
@@ -1346,7 +1658,17 @@ async function telaPainel() {
       '</div>' +
     '</div>' + tabelaInscritos(inscritos) + '</div>';
 
-  html += '<div class="painel"><span class="eyebrow">Acesso</span>' +
+  html += '<div class="painel"><span class="eyebrow">Prestação de contas</span>' +
+    '<h3 style="margin-top:4px">Taxa de serviço</h3>' +
+    '<p style="color:var(--tinta-media);font-size:.9rem;margin-top:6px">' +
+      'Conta só inscrição paga — cancelada, pendente ou reembolsada não gera taxa. ' +
+      'O dinheiro cai direto na conta do evento; a taxa é repassada à parte. ' +
+      '<a href="/termos.html" target="_blank" rel="noopener">Ver os termos</a>.</p>' +
+    '<div id="lista-extrato" style="margin-top:14px"><p class="carregando">Carregando…</p></div></div>';
+
+  // Só a administração da plataforma: identidade do site, chave da casa e
+  // equipe são globais, não pertencem a quem publica um evento.
+  if (estado.organizador) html += '<div class="painel"><span class="eyebrow">Acesso</span>' +
     '<h3 style="margin-top:4px">Equipe da organização</h3>' +
     '<p style="color:var(--tinta-media);font-size:.9rem;margin-top:6px">' +
       'Quem está nesta lista enxerga o Painel e pode publicar eventos, ver os inscritos e ' +
@@ -1376,6 +1698,8 @@ function campo(nome, rotulo, valor, dica, classe, max) {
 function linhaEvento(ev) {
   const lotes = (ev.lotes || []).slice().sort((a, b) => a.ordem - b.ordem);
   const preco = lotes.length ? lotes[0].preco_centavos : 0;
+  const percOcupacao = ev.vagas ? Math.min(100, Math.round(((ev.ocupadas || 0) / ev.vagas) * 100)) : null;
+
   return '<div class="linha-item"><div class="quem">' +
     '<b>' + esc(ev.nome) + (ev.publicado ? "" : ' <span class="tag pendente" style="margin-left:6px">rascunho</span>') +
       (ev.destaque ? ' <span class="tag espera">destaque</span>' : "") + '</b>' +
@@ -1384,7 +1708,9 @@ function linhaEvento(ev) {
       " · a partir de " + (preco > 0 ? dinheiro(preco) : "gratuito") +
       " · " + lotes.length + " lote(s)" +
       (String(ev.edital || "").trim() ? " · com edital" : "") +
-      (ev.resultados_publicados ? " · resultado publicado" : "") + '</small>' +
+      (ev.resultados_publicados ? " · resultado publicado" : "") +
+      (ev.vagas ? " · " + (ev.ocupadas || 0) + "/" + ev.vagas + " vagas (" + percOcupacao + "%)" : "") + '</small>' +
+      (ev.vagas ? '<div class="barra-progresso"><div class="barra-progresso-fill" style="width:' + percOcupacao + '%"></div></div>' : '') +
     '</div><div style="display:flex;gap:8px;flex-wrap:wrap">' +
       '<button class="btn fantasma pequeno" data-editar="' + ev.id + '">Editar</button>' +
       '<button class="btn fantasma pequeno" data-resultados-de="' + ev.id + '">Resultados</button>' +
@@ -1400,9 +1726,12 @@ function tabelaInscritos(lista) {
   if (!lista.length)
     return '<div class="vazio" style="margin-top:14px"><h3>Ninguém se inscreveu ainda</h3>' +
       '<p>Publique um evento e divulgue o link do site.</p></div>';
-  return '<div class="rolagem" style="margin-top:14px"><table><thead><tr>' +
+  return '<div class="busca-tabela-caixa">' +
+      '<input id="busca-inscritos" class="busca-tabela" placeholder="🔍 Filtrar por nome, número de peito, código, situação ou e-mail...">' +
+    '</div>' +
+    '<div class="rolagem" style="margin-top:6px"><table><thead><tr>' +
     '<th>Participante</th><th>Evento</th><th>Nº</th><th>Código</th><th>Valor</th><th>Situação</th><th>Kit</th><th></th>' +
-    '</tr></thead><tbody>' + lista.map(i => {
+    '</tr></thead><tbody id="tabela-inscritos-corpo">' + lista.map(i => {
       const ev = i.eventos || {};
       const respostas = Object.values(i.respostas || {}).join(" · ");
       return '<tr>' +
@@ -1455,7 +1784,9 @@ function trazerParaAVista(caixa, seletorFoco) {
 function ligarPainel() {
   edLogo = estado.painel.config.logo_url || "";
   const previaLogo = () => {
-    $("#previa-logo").innerHTML = edLogo
+    const caixaLogo = $("#previa-logo");
+    if (!caixaLogo) return;
+    caixaLogo.innerHTML = edLogo
       ? '<img src="' + esc(edLogo) + '" alt="Prévia do logotipo" ' +
         'style="width:72px;height:72px;object-fit:cover;border-radius:50%;border:1px solid var(--borda)">' +
         '<div class="acoes" style="margin-top:8px"><button type="button" class="btn perigo pequeno" id="tirar-logo">Voltar às iniciais</button></div>'
@@ -1463,10 +1794,12 @@ function ligarPainel() {
   };
   previaLogo();
 
-  $("#previa-logo").addEventListener("click", e => {
+  const caixaPreviaLogo = $("#previa-logo");
+  if (caixaPreviaLogo) caixaPreviaLogo.addEventListener("click", e => {
     if (e.target.id === "tirar-logo") { edLogo = ""; previaLogo(); }
   });
-  $("#arquivo-logo").addEventListener("change", async e => {
+  const arquivoLogo = $("#arquivo-logo");
+  if (arquivoLogo) arquivoLogo.addEventListener("change", async e => {
     const arq = e.target.files && e.target.files[0];
     if (!arq) return;
     if (arq.size > 2 * 1024 * 1024) { torrar("Imagem grande demais — use até 2 MB"); return; }
@@ -1491,7 +1824,8 @@ function ligarPainel() {
     document.documentElement.style.setProperty("--sobre-acento", tintaSobre(corTexto.value));
   });
 
-  $("#form-identidade").addEventListener("submit", async e => {
+  const formIdentidade = $("#form-identidade");
+  if (formIdentidade) formIdentidade.addEventListener("submit", async e => {
     e.preventDefault();
     const f = new FormData(e.target);
     const corEscolhida = String(f.get("cor_acento_texto") || f.get("cor_acento") || "").trim().toUpperCase();
@@ -1514,7 +1848,8 @@ function ligarPainel() {
     } catch (err) { torrar(mensagemDe(err)); }
   });
 
-  $("#form-config").addEventListener("submit", async e => {
+  const formConfig = $("#form-config");
+  if (formConfig) formConfig.addEventListener("submit", async e => {
     e.preventDefault();
     const f = new FormData(e.target);
     try {
@@ -1532,7 +1867,43 @@ function ligarPainel() {
   $("#novo-evento").addEventListener("click", () => editorEvento(null));
   const bx = $("#exportar");
   if (bx) bx.addEventListener("click", exportar);
+  desenharExtrato();
   ligarEquipe();
+}
+
+async function desenharExtrato() {
+  const alvo = $("#lista-extrato");
+  if (!alvo) return;
+  let linhas = [];
+  try { linhas = await api.extratoTaxas(); }
+  catch (e) { alvo.innerHTML = '<div class="erro">' + esc(mensagemDe(e)) + '</div>'; return; }
+
+  if (!linhas.length) {
+    alvo.innerHTML = '<p style="color:var(--tinta-fraca);font-size:.9rem">' +
+      'Nada ainda. Assim que a primeira inscrição for confirmada, ela aparece aqui.</p>';
+    return;
+  }
+
+  const soma = campo => linhas.reduce((t, l) => t + (Number(l[campo]) || 0), 0);
+  const totalPagas = linhas.reduce((t, l) => t + (Number(l.pagas) || 0), 0);
+
+  alvo.innerHTML =
+    '<div class="rolagem"><table><thead><tr>' +
+      '<th>Evento</th><th>Pagas</th><th>Arrecadado</th><th>Taxa devida</th><th>Fica com você</th>' +
+    '</tr></thead><tbody>' +
+    linhas.map(l =>
+      '<tr><td>' + esc(l.nome) + (l.data ? ' <small>' + esc(dataBR(String(l.data))) + '</small>' : "") + '</td>' +
+        '<td class="mono">' + (l.pagas || 0) + '</td>' +
+        '<td class="mono">' + dinheiro(l.arrecadado || 0) + '</td>' +
+        '<td class="mono">' + dinheiro(l.taxa_devida || 0) + '</td>' +
+        '<td class="mono">' + dinheiro(l.liquido || 0) + '</td></tr>').join("") +
+    '</tbody><tfoot><tr>' +
+      '<td><b>Total</b></td>' +
+      '<td class="mono"><b>' + totalPagas + '</b></td>' +
+      '<td class="mono"><b>' + dinheiro(soma("arrecadado")) + '</b></td>' +
+      '<td class="mono"><b>' + dinheiro(soma("taxa_devida")) + '</b></td>' +
+      '<td class="mono"><b>' + dinheiro(soma("liquido")) + '</b></td>' +
+    '</tr></tfoot></table></div>';
 }
 
 async function desenharEquipe() {
@@ -1655,7 +2026,8 @@ function editorEvento(id) {
     vagas: 0, numero_inicial: 1, numero_digitos: 4, peito_cor: "",
     peito_logo_url: "", peito_fundo_url: "",
     espera_ativa: true, inscricoes_abertas: true,
-    publicado: false, destaque: false
+    publicado: false, destaque: false,
+    chave_pix: "", recebedor_nome: "", recebedor_cidade: ""
   };
   edEventoId = id;
   edCapa = v.imagem_url || "";
@@ -1741,6 +2113,26 @@ function editorEvento(id) {
         'Quem decide isso na hora da inscrição é o banco, não o navegador.</p>' +
         '<div class="mini-lista" id="lista-lotes"></div>' +
         '<div class="acoes" style="margin-top:12px"><button type="button" class="btn fantasma pequeno" id="add-lote">Adicionar lote</button></div>' +
+      '</div>' +
+
+      '<div class="sub"><h4>Recebimento deste evento</h4>' +
+        '<p class="explica">O Pix cai <b>direto na sua conta</b> — a plataforma não ' +
+        'toca no dinheiro em momento nenhum. Deixando em branco, o evento usa a chave ' +
+        'geral do site.' +
+        (estado.taxa > 0
+          ? ' Sobre cada inscrição paga, o participante paga <b>' + dinheiro(estado.taxa) +
+            '</b> a mais de taxa de serviço, que entra na sua conta junto e você ' +
+            'repassa à plataforma. Evento gratuito não tem taxa.'
+          : '') +
+        ' <a href="/termos.html" target="_blank" rel="noopener">Ver os termos</a>.</p>' +
+        '<div class="campos duas" style="margin-top:12px">' +
+          '<label>Chave Pix<input name="chave_pix" class="mono" value="' + esc(v.chave_pix || "") +
+            '" placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"></label>' +
+          '<label>Nome do recebedor <span class="dica">como está na conta</span>' +
+            '<input name="recebedor_nome" maxlength="25" value="' + esc(v.recebedor_nome || "") + '"></label>' +
+          '<label>Cidade do recebedor <span class="dica">máx. 15 caracteres</span>' +
+            '<input name="recebedor_cidade" maxlength="15" value="' + esc(v.recebedor_cidade || "") + '"></label>' +
+        '</div>' +
       '</div>' +
 
       '<div class="sub"><h4>Perguntas do formulário</h4>' +
@@ -1884,6 +2276,9 @@ function editorEvento(id) {
         destaque: f.get("destaque") === "on",
         descricao: String(f.get("descricao") || "").trim(),
         edital: String(f.get("edital") || "").trim(),
+        chave_pix: String(f.get("chave_pix") || "").trim(),
+        recebedor_nome: String(f.get("recebedor_nome") || "").trim(),
+        recebedor_cidade: String(f.get("recebedor_cidade") || "").trim(),
         lotes,
         perguntas: edPerguntas.filter(p => String(p.rotulo || "").trim())
       });
@@ -2073,13 +2468,23 @@ document.addEventListener("input", e => {
     t.value = formataCPF(t.value);
     if (fim) t.setSelectionRange(t.value.length, t.value.length);
   }
+  // Filtro ao vivo da tabela de inscritos do painel: esconde as linhas que
+  // não casam com o texto, sem recarregar nem perder a rolagem.
+  if (t && t.id === "busca-inscritos") {
+    const termo = t.value.trim().toLowerCase();
+    document.querySelectorAll("#tabela-inscritos-corpo tr").forEach(tr => {
+      tr.hidden = termo && !tr.textContent.toLowerCase().includes(termo);
+    });
+  }
 });
 
 document.addEventListener("click", async e => {
+  if (e.target.closest("#botao-tema")) return alternarTema();
+
   const alvo = e.target.closest("[data-ir],[data-abrir],[data-inscrever],[data-voltar-evento]," +
     "[data-copiar],[data-pix],[data-cancelar],[data-sair],[data-editar],[data-publicar]," +
     "[data-abrir-fechar],[data-apagar],[data-apagar-inscricao],[data-status],[data-imprimir],[data-recarregar],"
-    + "[data-peito],[data-peitos],[data-kit]," +
+    + "[data-peito],[data-peitos],[data-kit],[data-compartilhar],[data-calendario],[data-certificado]," +
     "[data-resultado],[data-resultados-de],[data-limpar-filtro],[data-tirar-acesso]");
   if (!alvo) return;
   const d = alvo.dataset;
@@ -2107,6 +2512,40 @@ document.addEventListener("click", async e => {
     return;
   }
   if (d.pix) return mostrarPix(d.pix);
+
+  if (d.compartilhar) {
+    const ev = eventoPorSlug(d.compartilhar);
+    if (ev) compartilharEvento(ev);
+    return;
+  }
+  if (d.calendario) {
+    const ev = eventoPorSlug(d.calendario);
+    if (!ev) return;
+    // Celular normalmente abre o app de agenda direto pelo Google Calendar;
+    // no computador, o arquivo .ics serve para Outlook e Apple Calendário.
+    if (/Android|iPhone|iPad/i.test(navigator.userAgent))
+      window.open(linkGoogleCalendar(ev), "_blank", "noopener,noreferrer");
+    else gerarICS(ev);
+    return;
+  }
+  if (d.certificado) {
+    const ev = estado.resultados.evento;
+    const linha = (estado.resultados.linhas || [])
+      .find(l => String(l.id || l.atleta) === d.certificado);
+    if (!ev || !linha) return;
+    abrirCertificado({
+      organizacao: estado.identidade && estado.identidade.nome_site,
+      evento: ev.nome,
+      atleta: linha.atleta,
+      percurso: linha.percurso,
+      tempo: linha.tempo,
+      posicao: linha.posicao,
+      data: dataLonga(ev.data),
+      local: cidadeUF(ev)
+    });
+    return;
+  }
+
   if (d.cancelar) {
     if (!confirm("Cancelar esta inscrição?")) return;
     try { await api.cancelarInscricao(d.cancelar); torrar("Inscrição cancelada"); await telaMinhas(); }
@@ -2195,6 +2634,7 @@ window.addEventListener("popstate", () => {
 /* ============================================================= partida == */
 
 (async function iniciar() {
+  iniciarTema();
   if (api.configPendente) {
     $("#v-eventos").innerHTML =
       '<div class="faixa"><div class="limite"><div class="painel">' +
@@ -2208,6 +2648,7 @@ window.addEventListener("popstate", () => {
   }
   try { aplicarIdentidade(await api.identidade()); }
   catch (e) { aplicarIdentidade(null); }
+  try { estado.taxa = await api.taxaServico(); } catch (e) { estado.taxa = 0; }
   estado.sessao = await api.sessaoAtual();
   estado.organizador = estado.sessao ? await api.souOrganizador() : false;
 

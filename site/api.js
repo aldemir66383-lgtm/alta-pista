@@ -92,6 +92,28 @@ export async function entrarPorEmail(email, nome, captchaToken) {
 export async function sair() {
   await sb.auth.signOut();
 }
+/** O id de quem está logado. Usado para carimbar o dono do evento. */
+async function meuId() {
+  const { data } = await sb.auth.getUser();
+  return (data && data.user && data.user.id) || null;
+}
+
+/**
+ * Quanto a plataforma cobra por inscrição, em centavos. Vem do banco e não do
+ * código, para mudar sem republicar o site. Público de propósito: o preço com
+ * a taxa precisa aparecer para quem ainda nem tem conta.
+ */
+export async function taxaServico() {
+  const { data, error } = await sb.rpc("taxa_servico");
+  if (error) return 0;
+  return Number(data) || 0;
+}
+
+/** Extrato por evento: quantas inscrições pagas e quanto se deve de taxa. */
+export async function extratoTaxas() {
+  return conferir(await sb.rpc("extrato_taxas")) || [];
+}
+
 export async function souOrganizador() {
   const { data, error } = await sb.rpc("eh_organizador");
   if (error) return false;
@@ -168,8 +190,46 @@ export async function minhasInscricoes() {
             + "numero_digitos, peito_cor, peito_logo_url, peito_fundo_url)")
     .order("criado_em", { ascending: false })) || [];
 }
+export async function gerarCobrancaGateway(inscricaoId) {
+  const { data: sessao } = await sb.auth.getSession();
+  const token = sessao?.access_token;
+  if (!token) throw new Error("Entre na sua conta para gerar o Pix.");
+
+  const naoDelegar = msg => {           // erro que autoriza cair na função do banco
+    const e = new Error(msg);
+    e.usarReserva = true;
+    return e;
+  };
+
+  let resposta;
+  try {
+    resposta = await fetch("/.netlify/functions/criar-cobranca-pix", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify({ inscricaoId })
+    });
+  } catch {
+    throw naoDelegar("Gateway de pagamento fora do ar.");
+  }
+
+  // Site publicado sem a função (ambiente ainda não configurado): usa a reserva.
+  if (resposta.status === 404) throw naoDelegar("Pagamento automático não publicado.");
+
+  const corpo = await resposta.json().catch(() => ({}));
+  if (resposta.status >= 500 && /configurad/i.test(corpo.error || ""))
+    throw naoDelegar(corpo.error);
+
+  if (!resposta.ok) throw new Error(corpo.error || "Não foi possível gerar o Pix.");
+  return corpo;
+}
+
 export async function cobranca(inscricaoId) {
-  return conferir(await sb.rpc("cobranca", { p_inscricao: inscricaoId }));
+  try {
+    return await gerarCobrancaGateway(inscricaoId);
+  } catch (erro) {
+    if (!erro.usarReserva) throw erro;      // erro real do usuário: mostra como veio
+    return conferir(await sb.rpc("cobranca", { p_inscricao: inscricaoId }));
+  }
 }
 export async function posicaoNaFila(inscricaoId) {
   const { data } = await sb.rpc("posicao_na_fila", { p_inscricao: inscricaoId });
@@ -202,6 +262,10 @@ export async function eventosDoPainel() {
  */
 export async function salvarEvento(evento) {
   const { id, lotes = [], perguntas = [], ...campos } = evento;
+  // Evento novo nasce com dono: é o que dá a ele o próprio painel e o que a
+  // política de INSERT do banco exige. Em evento que já existe não se mexe,
+  // para não transferir a posse sem querer.
+  if (!id && !campos.dono_id) campos.dono_id = await meuId();
   const salvo = id
     ? conferir(await sb.from("eventos").update(campos).eq("id", id).select().single())
     : conferir(await sb.from("eventos").insert(campos).select().single());

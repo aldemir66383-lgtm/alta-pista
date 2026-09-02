@@ -31,6 +31,11 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/icone-32.png">
 <link rel="icon" type="image/png" sizes="512x512" href="/icone-512.png">
 <link rel="apple-touch-icon" href="/icone-512.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Alta-Pista">
 <link rel="stylesheet" href="fontes.css">
 <link rel="stylesheet" href="estilo.css">
 </head>
@@ -51,7 +56,10 @@
       <button data-ir="minhas">Minhas inscrições</button>
       <button data-ir="painel" hidden>Painel</button>
     </nav>
-    <div class="identidade" id="identidade"></div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button id="botao-tema" class="btn-tema" aria-label="Alternar modo claro e escuro" title="Alternar tema">🌓</button>
+      <div class="identidade" id="identidade"></div>
+    </div>
   </div>
 </header>
 
@@ -82,6 +90,7 @@
         <li><a href="#" data-ir="resultados">Resultados</a></li>
         <li><a href="#" data-ir="minhas">Minhas inscrições</a></li>
         <li><a href="#" data-ir="entrar">Entrar na conta</a></li>
+        <li><a href="/termos.html">Termos de uso</a></li>
       </ul>
     </div>
     <div>
