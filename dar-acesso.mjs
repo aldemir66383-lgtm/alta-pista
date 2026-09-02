@@ -12,39 +12,72 @@
 // para o site nem para o GitHub. Ela fica em `.chave-servico`, um arquivo que
 // o .gitignore já bloqueia. Se ela vazar, gere outra no painel do Supabase.
 
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { createInterface } from "node:readline/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
-const SITE = "https://alta-pista.netlify.app";
+const SITE = "https://alta-pista.vercel.app";
+
+/**
+ * Pergunta e espera a resposta. Se a entrada acabar antes (janela fechada, ou
+ * o script rodando fora de um terminal de verdade), devolve vazio em vez de
+ * ficar esperando para sempre — pendurado é o pior jeito de falhar.
+ */
+function perguntar(teclado, texto) {
+  return new Promise(resolve => {
+    let respondeu = false;
+    teclado.question(texto).then(v => { respondeu = true; resolve(v); });
+    teclado.once("close", () => { if (!respondeu) resolve(""); });
+  });
+}
 
 /* ------------------------------------------------- a chave secreta --- */
 
 const ARQUIVO_CHAVE = join(AQUI, ".chave-servico");
 
-function chaveSecreta() {
-  if (!existsSync(ARQUIVO_CHAVE)) {
-    console.log(`
-  Falta a chave secreta do projeto — uma vez só, e nunca mais.
+/**
+ * A chave secreta do projeto, guardada aqui na máquina.
+ *
+ * Na primeira vez, pergunta e salva. Isso é de propósito: criar à mão um
+ * arquivo cujo nome começa com ponto é penoso no Windows — o Explorer recusa
+ * e o Bloco de Notas acrescenta ".txt" sem avisar. Pedir e gravar sozinho
+ * evita meia hora de briga com o sistema de arquivos.
+ *
+ * A chave nunca é mostrada de volta na tela nem sai daqui: ela só viaja para o
+ * seu próprio Supabase. O .gitignore bloqueia o arquivo.
+ */
+async function chaveSecreta(pergunta) {
+  if (existsSync(ARQUIVO_CHAVE)) {
+    const guardada = readFileSync(ARQUIVO_CHAVE, "utf8").trim();
+    if (guardada) return guardada;
+  }
 
-  1. Abra o painel do Supabase, em Project Settings › API Keys.
-  2. Copie a chave "service_role" (a secreta, não a publishable).
-  3. Salve num arquivo de texto puro chamado
+  console.log(`
+  Primeira vez: preciso da chave secreta do seu Supabase.
 
-       .chave-servico
+  Abra o painel do Supabase, vá em Project Settings › API Keys e copie a
+  chave "service_role" — a secreta, não a publishable. Ela começa com
+  "eyJ" ou "sb_secret_" e é comprida.
 
-     aqui dentro da pasta do projeto, com a chave e mais nada.
-
-  Essa chave ignora todas as travas de segurança do banco: ela não pode ir
-  para o site, para o GitHub nem para conversa nenhuma. O arquivo já está
-  bloqueado no .gitignore. Se ela vazar um dia, gere outra no mesmo lugar.
+  Ela fica guardada só aqui na sua máquina, nesta pasta, e nunca vai para o
+  site nem para o GitHub. Se um dia vazar, gere outra no mesmo lugar.
 `);
+
+  const chave = (await perguntar(pergunta, "  Cole a chave aqui e aperte Enter: ")).trim();
+
+  if (!chave) {
+    console.log("\n  Nada colado. Rode de novo quando tiver a chave.\n");
     process.exit(1);
   }
-  const chave = readFileSync(ARQUIVO_CHAVE, "utf8").trim();
-  if (!chave) { console.log("\n  O arquivo .chave-servico está vazio.\n"); process.exit(1); }
+  if (chave.length < 30) {
+    console.log("\n  Isso parece curto demais para ser a chave. Confira e rode de novo.\n");
+    process.exit(1);
+  }
+
+  writeFileSync(ARQUIVO_CHAVE, chave + "\n", { encoding: "utf8" });
+  console.log("\n  Chave guardada. Não vou pedir de novo.\n");
   return chave;
 }
 
@@ -100,11 +133,12 @@ async function promover(base, chave, userId) {
 
 /* ------------------------------------------------------- o roteiro -- */
 
-const chave = chaveSecreta();
-const base = urlDoProjeto();
-
+// Uma conversa só, do começo ao fim: abrir duas leituras do teclado deixa a
+// segunda sem entrada assim que a primeira fecha.
 const pergunta = createInterface({ input: process.stdin, output: process.stdout });
-const email = (await pergunta.question("\n  E-mail de quem vai receber o acesso: ")).trim().toLowerCase();
+const chave = await chaveSecreta(pergunta);
+const base = urlDoProjeto();
+const email = (await perguntar(pergunta, "\n  E-mail de quem vai receber o acesso: ")).trim().toLowerCase();
 pergunta.close();
 
 if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {

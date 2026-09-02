@@ -13,6 +13,11 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+// O site publicado. Mudou da Netlify para a Vercel: os testes precisam
+// olhar para onde as pessoas realmente entram, senão passam conferindo
+// uma publicação antiga que ninguém usa.
+const SITE = process.env.SITE_URL || "https://alta-pista.vercel.app";
+
 const aqui = dirname(fileURLToPath(import.meta.url));
 const config = readFileSync(join(aqui, "..", "site", "config.js"), "utf8");
 const URL_BASE = (config.match(/supabaseUrl:\s*"([^"]+)"/) || [])[1];
@@ -251,7 +256,7 @@ await teste("números de peito não se repetem dentro do evento", async () => {
 });
 
 await teste("o gerador do número de peito está publicado", async () => {
-  const r = await fetch("https://alta-pista.netlify.app/peito.js");
+  const r = await fetch(SITE + "/peito.js");
   confere(r.ok, "peito.js respondeu " + r.status);
   const t = await r.text();
   confere(/formatarNumero/.test(t), "o arquivo publicado está desatualizado");
@@ -268,7 +273,7 @@ await teste("o balde de imagens existe e é público", async () => {
 });
 
 await teste("o site publicado responde", async () => {
-  const r = await fetch("https://alta-pista.netlify.app/", { redirect: "follow" });
+  const r = await fetch(SITE + "/", { redirect: "follow" });
   confere(r.ok, "o site respondeu " + r.status);
   const html = await r.text();
   confere(/Balc|Alta-Pista/i.test(html), "a página não parece a do site");
@@ -276,7 +281,7 @@ await teste("o site publicado responde", async () => {
 
 await teste("o site não expõe chave secreta no código", async () => {
   for (const arq of ["app.js", "api.js", "config.js"]) {
-    const t = await (await fetch("https://alta-pista.netlify.app/" + arq)).text();
+    const t = await (await fetch(SITE + "/" + arq)).text();
     confere(!/sb_secret_|service_role"\s*:/.test(t), "chave secreta encontrada em " + arq);
   }
 });

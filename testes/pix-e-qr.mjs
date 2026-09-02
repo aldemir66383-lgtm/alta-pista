@@ -136,7 +136,7 @@ function leituraDeVolta(texto, escala = 8, borda = 4) {
 
 const casos = [
   ["o código Pix de uma inscrição real", codigo],
-  ["o endereço do site", "https://alta-pista.netlify.app"],
+  ["o endereço do site", "https://alta-pista.vercel.app"],
   ["texto curtíssimo", "A"],
   ["acentos e pontuação", "Corrida da Escola — inscrições abertas! (5 km / 10 km)"],
   ["conteúdo longo", "x".repeat(300)],
