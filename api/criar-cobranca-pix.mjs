@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
+import { universal } from "../lib/handler.mjs";
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }
@@ -25,7 +26,7 @@ function urlDoSite(request) {
   try { return new URL(request.url).origin; } catch { return ""; }
 }
 
-export default async request => {
+export default universal(async request => {
   if (request.method !== "POST") return json({ error: "Método não permitido." }, 405);
   try {
     ambiente();
@@ -102,4 +103,4 @@ export default async request => {
     console.error("criar-cobranca-pix", error);
     return json({ error: error.message || "Não foi possível gerar o Pix." }, 500);
   }
-};
+});

@@ -201,15 +201,26 @@ export async function gerarCobrancaGateway(inscricaoId) {
     return e;
   };
 
+  // Prazo obrigatório: sem ele, uma função que trava deixa a pessoa presa em
+  // "Gerando a cobrança…" para sempre, e a reserva pelo banco nunca entra em
+  // cena. O gateway conversa com o Mercado Pago, então o prazo precisa ser
+  // folgado o bastante para uma função fria — mas existir.
+  const PRAZO = 15000;
+  const relogio = new AbortController();
+  const corte = setTimeout(() => relogio.abort(), PRAZO);
+
   let resposta;
   try {
     resposta = await fetch("/.netlify/functions/criar-cobranca-pix", {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-      body: JSON.stringify({ inscricaoId })
+      body: JSON.stringify({ inscricaoId }),
+      signal: relogio.signal
     });
   } catch {
     throw naoDelegar("Gateway de pagamento fora do ar.");
+  } finally {
+    clearTimeout(corte);
   }
 
   // Site publicado sem a função (ambiente ainda não configurado): usa a reserva.

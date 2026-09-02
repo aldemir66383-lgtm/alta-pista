@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Inscricoes e pagamento por Pix para corridas e eventos",
   "scripts": {
-    "test": "node testes/pix-e-qr.mjs && node testes/peito.mjs && node testes/webhook-mercadopago.mjs && node testes/seguranca.mjs",
+    "test": "node testes/pix-e-qr.mjs && node testes/peito.mjs && node testes/adaptador.mjs && node testes/webhook-mercadopago.mjs && node testes/seguranca.mjs",
     "test:pagamento": "node testes/pix-e-qr.mjs",
     "test:seguranca": "node testes/seguranca.mjs",
     "qr": "node gerar-qr.mjs",

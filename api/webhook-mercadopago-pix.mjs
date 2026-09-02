@@ -1,12 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 import { idDoPagamento, avaliarPagamento, assinaturaConfere } from "../lib/mercadopago.mjs";
+import { universal } from "../lib/handler.mjs";
 
 const ok = (body, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }
 });
 const MP_API = "https://api.mercadopago.com";
 
-export default async request => {
+export default universal(async request => {
   if (request.method !== "POST") return ok({ error: "Método não permitido." }, 405);
 
   try {
@@ -81,4 +82,4 @@ export default async request => {
     console.error("webhook-mercadopago-pix", error);
     return ok({ error: "Falha temporária ao processar o evento." }, 500);
   }
-};
+});
