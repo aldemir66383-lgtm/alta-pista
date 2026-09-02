@@ -8,7 +8,7 @@ import { writeFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";
 import { QR } from "./site/qr.js";
 
-const destino = process.argv[2] || "https://alta-pista.netlify.app";
+const destino = process.argv[2] || "https://alta-pista.vercel.app";
 const TITULO = "ALTA PISTA";
 const CHAMADA = "Inscrições e resultados";
 const AMARELO = "#FFE01B";
