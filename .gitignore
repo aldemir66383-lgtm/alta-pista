@@ -11,3 +11,7 @@ Thumbs.db
 # natureza (viajam no navegador de qualquer visitante) e precisam estar no
 # repositorio para a Netlify publicar direto do GitHub.
 # O que NUNCA pode entrar aqui e a service_role / secret key.
+
+# chave secreta do Supabase, usada pelo "Dar acesso ao painel.cmd".
+# NUNCA pode ir para o GitHub: ela ignora todas as travas do banco.
+.chave-servico
