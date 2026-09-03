@@ -108,6 +108,23 @@ await teste("ler a chave Pix da organização", async () => {
   confere(Array.isArray(j) && j.length === 0, "VAZAMENTO: a configuração foi lida sem conta");
 });
 
+await teste("ler a chave Pix de um evento", async () => {
+  // Este teste nasceu de um vazamento real: a chave Pix passou a morar na
+  // tabela de eventos, que é pública para eventos publicados, e ficou legível
+  // por qualquer visitante — inclusive quando a chave é um CPF. Vale para
+  // qualquer coluna sensível que um dia vá parar em `eventos`.
+  const r = await rest("eventos?select=chave_pix,recebedor_nome&limit=5");
+  if (r.ok) {
+    const j = await r.json();
+    const vazou = (j || []).some(e =>
+      String(e.chave_pix || "").trim() || String(e.recebedor_nome || "").trim());
+    confere(!vazou, "VAZAMENTO: a chave Pix do evento foi lida sem conta");
+  } else {
+    confere(r.status === 401 || r.status === 403 || r.status === 400,
+      "esperava recusa, veio " + r.status);
+  }
+});
+
 await teste("ler os perfis das pessoas", async () => {
   const r = await rest("perfis?select=id,nome,telefone");
   const j = await r.json();
