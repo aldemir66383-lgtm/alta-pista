@@ -7,7 +7,8 @@
 //
 // Vai em A4 retrato, porque é o papel que qualquer casa e qualquer escola tem,
 // e sai legível em impressora simples: preto no branco, sem fundo colorido que
-// gasta tinta e sem depender de imagem externa.
+// gasta tinta. A única imagem é a capa do evento, numa faixa baixa no topo —
+// e, se ela faltar ou não carregar, a folha continua inteira e legível.
 //
 // O QR carrega o código da inscrição, o mesmo do número de peito. Quem estiver
 // na retirada pode bipar em vez de digitar.
@@ -39,6 +40,14 @@ export function folhaComprovante(d) {
     : '<span class="selo pendente">PAGAMENTO PENDENTE</span>';
 
   return '<div class="comprovante">' +
+
+    /* A capa do evento no topo. Não é enfeite: é o que faz a pessoa reconhecer
+       de longe qual papel é qual quando leva três inscrições da família, e o
+       que dá cara de evento àquele documento na mesa da retirada. Em faixa
+       baixa, para não devorar tinta nem empurrar os dados para a página 2. */
+    (d.imagemUrl
+      ? '<div class="capa"><img src="' + esc(d.imagemUrl) + '" alt=""></div>'
+      : "") +
 
     '<div class="cabeca">' +
       '<div>' +
@@ -96,6 +105,9 @@ export function paginaDeComprovantes(folhas, titulo) {
     '.aviso{padding:16px 20px;background:#fff;border-bottom:1px solid #ddd;color:#444}' +
     '.comprovante{background:#fff;padding:26px 28px;page-break-after:always;break-after:page}' +
     '.comprovante:last-child{page-break-after:auto;break-after:auto}' +
+    '.capa{margin:-26px -28px 18px;height:112px;overflow:hidden;background:#eee}' +
+    '.capa img{width:100%;height:112px;object-fit:cover;display:block}' +
+    '@media print{.capa{margin:0 0 16px;height:96px}.capa img{height:96px}}' +
     '.cabeca{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;' +
       'border-bottom:2px solid #111;padding-bottom:14px}' +
     '.org{text-transform:uppercase;letter-spacing:.12em;font-size:10px;color:#555}' +

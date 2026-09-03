@@ -364,6 +364,7 @@ function dadosDoComprovante(i, rotulos) {
   const rotuloStatus = { pago: "pago", pendente: "pendente", espera: "espera", cancelada: "cancelada" };
   return {
     organizacao: estado.organizacao || id.nome_site || "",
+    imagemUrl: e.imagem_url || "",
     evento: e.nome || "",
     quando: (e.data ? dataLonga(e.data) : "") + (e.hora ? " · " + hora(e.hora) : ""),
     local: [e.local, cidadeUF(e)].filter(Boolean).join(" — "),
@@ -521,6 +522,8 @@ const estado = {
   // Taxa de serviço da plataforma, em centavos. Vem do banco (0016) para poder
   // mudar sem republicar o site; 0 desliga a exibição.
   taxa: 0,
+  // Motivo de um link de acesso recusado, para a tela de entrar explicar.
+  avisoEntrar: null,
   destino: null
 };
 let vista = "eventos";
@@ -1521,7 +1524,12 @@ function telaEntrar() {
       '</div>' +
       (usaCaptcha ? '<div id="turnstile-entrar" style="margin-top:14px"></div>' : '') +
       '<div class="acoes"><button class="btn" type="submit" id="botao-entrar">Enviar link de acesso</button></div>' +
-      '<div id="aviso-entrar"></div></form>' +
+      '<div id="aviso-entrar">' +
+        (estado.avisoEntrar
+          ? '<div class="aviso" style="margin-top:16px"><span>⚑</span><span>' +
+            esc(estado.avisoEntrar) + '</span></div>'
+          : "") +
+      '</div></form>' +
     '</div></div></div>';
 
   // Token do Turnstile: chega pelo callback quando a verificação passa, e cada
@@ -1544,6 +1552,8 @@ function telaEntrar() {
       if (aviso) aviso.innerHTML = '<div class="erro">' + esc(mensagemDe(err)) + '</div>';
     });
   }
+
+  estado.avisoEntrar = null;   // já foi mostrado; não repete na próxima visita
 
   $("#form-entrar").addEventListener("submit", async e => {
     e.preventDefault();
@@ -2833,6 +2843,37 @@ window.addEventListener("popstate", () => {
 
 /* ============================================================= partida == */
 
+/**
+ * O link de acesso é de uso único e vence em pouco tempo. Clicar de novo no
+ * mesmo link — ou num link velho, guardado no WhatsApp — não entra: o Supabase
+ * devolve a pessoa ao site com o motivo no endereço, e o site ignorava isso.
+ * Ela caía na página inicial deslogada, sem Painel e sem explicação nenhuma,
+ * concluindo que o site quebrou.
+ *
+ * Aqui o motivo vira mensagem, e o endereço é limpo para o aviso não voltar a
+ * cada recarga.
+ */
+function avisoDeLinkDeAcesso() {
+  const bruto = (window.location.hash || "").replace(/^#/, "") ||
+                (window.location.search || "").replace(/^\?/, "");
+  if (!bruto || !/error/.test(bruto)) return null;
+
+  const p = new URLSearchParams(bruto);
+  const codigo = p.get("error_code") || p.get("error") || "";
+  const descricao = p.get("error_description") || "";
+  if (!codigo && !descricao) return null;
+
+  // Tira o erro do endereço, para não reaparecer a cada F5.
+  try {
+    history.replaceState(null, "", window.location.pathname + window.location.search.replace(/[?&]error[^&]*/g, ""));
+  } catch (e) { /* navegador antigo: segue com o endereço como está */ }
+
+  if (/expired|invalid/i.test(codigo + " " + descricao))
+    return "Este link de acesso já foi usado ou venceu. Cada link serve uma vez só — " +
+           "peça um novo abaixo, com o seu e-mail.";
+  return "Não foi possível entrar com esse link. Peça um novo abaixo, com o seu e-mail.";
+}
+
 (async function iniciar() {
   iniciarTema();
   if (api.configPendente) {
@@ -2851,6 +2892,14 @@ window.addEventListener("popstate", () => {
   try { estado.taxa = await api.taxaServico(); } catch (e) { estado.taxa = 0; }
   estado.sessao = await api.sessaoAtual();
   estado.organizador = estado.sessao ? await api.souOrganizador() : false;
+
+  // Link de acesso recusado: leva para a tela de entrar já explicando o motivo,
+  // em vez de deixar a pessoa na página inicial achando que o site quebrou.
+  const recado = avisoDeLinkDeAcesso();
+  if (recado && !estado.sessao) {
+    estado.avisoEntrar = recado;
+    vista = "entrar";
+  }
 
   api.aoMudarSessao(async sessao => {
     const entrouAgora = !!sessao && !estado.sessao;
