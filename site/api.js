@@ -74,8 +74,28 @@ export async function sessaoAtual() {
   const { data } = await sb.auth.getSession();
   return data.session || null;
 }
+/**
+ * Avisa o site quando a sessão muda (entrou, saiu, o acesso foi renovado).
+ *
+ * O `setTimeout` de zero não é enfeite nem gambiarra: é o que impede o site
+ * inteiro de travar. A biblioteca do Supabase protege as operações de conta
+ * com um cadeado e espera por ele SEM PRAZO. Quando alguém entra, ela avisa
+ * os interessados ainda segurando esse cadeado — e o nosso aviso precisa
+ * perguntar ao banco quem é organizador, o que pede o mesmo cadeado. Um
+ * espera o outro, para sempre.
+ *
+ * O estrago não ficava no aviso: o cadeado nunca mais era solto, então toda
+ * operação de conta depois dele parava — salvar a senha ficava em "Salvando…"
+ * eterno, sem erro, e na segunda entrada pelo computador o Painel não abria.
+ *
+ * Adiar o aviso em um passo devolve o controle à biblioteca, que solta o
+ * cadeado antes de o nosso código pedi-lo. É a saída recomendada pelo próprio
+ * Supabase: nada de `await` dentro do aviso de sessão.
+ */
 export function aoMudarSessao(callback) {
-  return sb.auth.onAuthStateChange((_evento, sessao) => callback(sessao));
+  return sb.auth.onAuthStateChange((_evento, sessao) => {
+    setTimeout(() => callback(sessao), 0);
+  });
 }
 export async function entrarPorEmail(email, nome, captchaToken) {
   return conferir(await sb.auth.signInWithOtp({
@@ -99,12 +119,21 @@ export async function entrarPorEmail(email, nome, captchaToken) {
  * não definir nenhuma continua entrando exatamente como antes.
  */
 export async function entrarComSenha(email, senha) {
-  return conferir(await sb.auth.signInWithPassword({ email, password: senha }));
+  return conferir(await comPrazo(
+    sb.auth.signInWithPassword({ email, password: senha }), 20000, "entrar com senha"));
 }
 
-/** Define ou troca a própria senha. Só funciona com a sessão aberta. */
+/**
+ * Define ou troca a própria senha. Só funciona com a sessão aberta.
+ *
+ * Com prazo porque estas operações esperam um cadeado interno sem limite de
+ * tempo: se ele ficar preso, o botão diria "Salvando…" para sempre, sem erro
+ * nenhum — e quem está do outro lado conclui que o site quebrou. Vinte
+ * segundos é folgado para uma internet ruim e curto para uma pessoa esperando.
+ */
 export async function definirSenha(senha) {
-  return conferir(await sb.auth.updateUser({ password: senha }));
+  return conferir(await comPrazo(
+    sb.auth.updateUser({ password: senha }), 20000, "salvar a senha"));
 }
 
 export async function sair() {
@@ -132,10 +161,20 @@ export async function extratoTaxas() {
   return conferir(await sb.rpc("extrato_taxas")) || [];
 }
 
+/**
+ * Esta pergunta é feita logo depois de entrar, e o desenho do Painel espera
+ * por ela. Se ela pendurar, a tela fica no "Carregando…" sem nunca sair — por
+ * isso tem prazo, e por isso qualquer tropeço vira "não é organizador" em vez
+ * de erro: quem publica o próprio evento não precisa desse papel para nada.
+ */
 export async function souOrganizador() {
-  const { data, error } = await sb.rpc("eh_organizador");
-  if (error) return false;
-  return !!data;
+  try {
+    const { data, error } = await comPrazo(sb.rpc("eh_organizador"), 10000, "seu acesso");
+    if (error) return false;
+    return !!data;
+  } catch (e) {
+    return false;
+  }
 }
 export async function meuPerfil() {
   const s = await sessaoAtual();
