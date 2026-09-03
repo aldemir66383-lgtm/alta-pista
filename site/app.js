@@ -387,6 +387,50 @@ function dadosDoComprovante(i, rotulos) {
   };
 }
 
+/**
+ * Manda imprimir só depois que as figuras da folha terminarem de baixar.
+ *
+ * Isto não é preciosismo. A janela é montada com `document.write`, e nesse
+ * caminho o navegador já marca o documento como "complete" antes de buscar
+ * imagem nenhuma — medido, não suposto. Quem confiasse nesse sinal mandaria
+ * imprimir com a capa do evento e a arte do peito ainda vazias, e o papel
+ * sairia com uma faixa cinza no lugar da imagem. Numa internet lenta, que é
+ * a do celular na secretaria da escola, isso seria o caso comum.
+ *
+ * A capa do comprovante é `<img>`; a arte do peito é `<image>` dentro de SVG,
+ * que não entra em `document.images`. Por isso a espera olha as duas listas.
+ *
+ * E espera com limite: se uma imagem não vier — endereço quebrado, rede caída —
+ * a folha sai assim mesmo depois de seis segundos. Comprovante sem capa ainda
+ * serve para retirar o kit; papel que nunca imprime não serve para nada.
+ */
+function imprimirQuandoAsImagensChegarem(janela) {
+  let jaFoi = false;
+  const imprimir = () => {
+    if (jaFoi) return;
+    jaFoi = true;
+    try { janela.focus(); janela.print(); } catch (e) { /* janela fechada */ }
+  };
+
+  const doc = janela.document;
+  const figuras = [
+    ...Array.from(doc.images || []),
+    ...Array.from(doc.querySelectorAll("image"))
+  ];
+
+  const esperas = figuras.map(fig => {
+    if (fig.complete) return Promise.resolve();          // <img> já baixada
+    return new Promise(pronto => {
+      // "error" também resolve: falta de uma imagem não pode segurar a folha.
+      fig.addEventListener("load", pronto, { once: true });
+      fig.addEventListener("error", pronto, { once: true });
+    });
+  });
+
+  Promise.all(esperas).then(() => setTimeout(imprimir, 150));
+  setTimeout(imprimir, 6000);   // rede travada não impede a impressão
+}
+
 /** Abre a janela de impressão com um ou vários comprovantes. */
 function imprimirComprovantes(inscricoes, titulo) {
   const lista = (inscricoes || []).filter(Boolean);
@@ -401,9 +445,7 @@ function imprimirComprovantes(inscricoes, titulo) {
   }
   janela.document.write(html);
   janela.document.close();
-  const imprimir = () => { try { janela.focus(); janela.print(); } catch (e) {} };
-  if (janela.document.readyState === "complete") setTimeout(imprimir, 400);
-  else janela.addEventListener("load", () => setTimeout(imprimir, 400));
+  imprimirQuandoAsImagensChegarem(janela);
 }
 
 function imprimirPeitos(inscricoes, titulo) {
@@ -423,9 +465,7 @@ function imprimirPeitos(inscricoes, titulo) {
   janela.document.write(html);
   janela.document.close();
   // A página de impressão não tem script próprio; quem manda imprimir é aqui.
-  const imprimir = () => { try { janela.focus(); janela.print(); } catch (e) {} };
-  if (janela.document.readyState === "complete") setTimeout(imprimir, 400);
-  else janela.addEventListener("load", () => setTimeout(imprimir, 400));
+  imprimirQuandoAsImagensChegarem(janela);
 }
 
 /* ============================================================== estado === */
@@ -975,7 +1015,8 @@ function respostaDoEvento(ev, pergunta) {
     if (lotes.length > 1) {
       descLotes = " Lotes: " + lotes.map(l => l.nome + " (" + (l.preco_centavos > 0 ? dinheiro(l.preco_centavos) : "Gratuito") + ")").join(", ") + ".";
     }
-    return "Valor da inscrição: " + (preco > 0 ? dinheiro(preco) : "Gratuito") + "." + descLotes + " O pagamento é feito via Pix no próprio site.";
+    return "Valor da inscrição: " + totalEmTexto(preco) + "." + descLotes +
+      " O pagamento é feito via Pix no próprio site.";
   }
 
   // Intenção 4: Percursos / Distâncias
@@ -1002,7 +1043,7 @@ function respostaDoEvento(ev, pergunta) {
     "Local: " + (ev.local || "a definir") + (cidadeUF(ev) ? " — " + cidadeUF(ev) : ""),
     ev.distancias ? "Percursos: " + ev.distancias : "",
     "Inscrições: " + (ev.inscricoes_abertas ? "abertas" : "encerradas"),
-    "Valor atual: " + (precoAtual(ev) > 0 ? dinheiro(precoAtual(ev)) : "gratuito"),
+    "Valor atual: " + totalEmTexto(precoAtual(ev)),
     String(ev.edital || "")
   ].filter(Boolean);
 
@@ -1516,8 +1557,12 @@ function telaEntrar() {
     '<div class="faixa"><div class="entrar-caixa"><div class="painel">' +
       '<span class="eyebrow">Sua conta</span><h2 style="margin-top:4px">Entrar</h2>' +
       '<p style="color:var(--tinta-media);font-size:.93rem;margin-top:8px">' +
-        'Digite seu e-mail e enviamos um link de acesso. Não existe senha para criar nem para lembrar — ' +
-        'e é esse e-mail que garante que só você enxerga as suas inscrições.</p>' +
+        // Antes esta frase dizia que senha não existia — e logo abaixo dela
+        // havia um campo de senha, para quem organiza. Quem lê promessa e vê
+        // o contrário na mesma tela desconfia do site inteiro.
+        'Digite seu e-mail e enviamos um link de acesso. Para se inscrever você ' +
+        'não precisa criar nem lembrar senha nenhuma — é esse e-mail que garante ' +
+        'que só você enxerga as suas inscrições.</p>' +
       '<form id="form-entrar"><div class="campos">' +
         '<label>Seu nome<input name="nome" placeholder="Como devemos te chamar"></label>' +
         '<label>E-mail<input name="email" type="email" required placeholder="voce@exemplo.com" autocomplete="email"></label>' +
@@ -1627,6 +1672,21 @@ function telaEntrar() {
  * promete, e é a diferença entre uma taxa combinada e uma surpresa no Pix.
  * Evento gratuito não tem taxa, então mostra só "Gratuito".
  */
+/**
+ * O mesmo valor, em texto puro, para a "Ajuda rápida" do evento.
+ *
+ * A ajuda respondia só o preço do lote, enquanto a ficha logo acima e a tela
+ * de pagamento mostravam o total com a taxa. Quem perguntasse "qual o valor?"
+ * lia um número e pagava outro — exatamente a surpresa no Pix que o termo de
+ * uso promete não dar. Sem HTML aqui: esta resposta é escrita como texto.
+ */
+function totalEmTexto(preco) {
+  if (!(preco > 0)) return "Gratuito";
+  if (!(estado.taxa > 0)) return dinheiro(preco);
+  return dinheiro(preco + estado.taxa) +
+    " (" + dinheiro(preco) + " + " + dinheiro(estado.taxa) + " de taxa de serviço)";
+}
+
 function valorComTaxa(preco) {
   if (!(preco > 0)) return "Gratuito";
   if (!(estado.taxa > 0)) return dinheiro(preco);

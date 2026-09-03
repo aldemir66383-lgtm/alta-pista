@@ -20,7 +20,7 @@
   /* tinta */
   --tinta:#10202E;
   --tinta-media:#4E6274;
-  --tinta-fraca:#8496A5;
+  --tinta-fraca:#5A6E80;
 
   /* faixas escuras (iguais nos dois temas: são o "uniforme" da marca) */
   --base:#0B1B2B;
@@ -37,7 +37,7 @@
   --sobre-acento:#071320;
 
   /* estados */
-  --pago:#12805C;
+  --pago:#0E6B4D;
   --pago-veu:#DFF3EC;
   --pendente:#9A6B00;
   --pendente-veu:#FBF0D8;
@@ -60,7 +60,7 @@
     --borda-forte:#2C4E68;
     --tinta:#E7EFF5;
     --tinta-media:#93A7B8;
-    --tinta-fraca:#6A8095;
+    --tinta-fraca:#8496A5;
     --pago:#3FCB9B;
     --pago-veu:#0F2C24;
     --pendente:#E3B45E;
@@ -80,7 +80,7 @@
   --borda-forte:#2C4E68;
   --tinta:#E7EFF5;
   --tinta-media:#93A7B8;
-  --tinta-fraca:#6A8095;
+  --tinta-fraca:#8496A5;
   --pago:#3FCB9B;
   --pago-veu:#0F2C24;
   --pendente:#E3B45E;
@@ -559,7 +559,10 @@ td .contato{color:var(--tinta-fraca);font-size:.81rem}
 .rodape a:hover{color:var(--acento)}
 .rodape .sobre{max-width:46ch;line-height:1.65}
 .rodape-base{border-top:1px solid rgba(255,255,255,.12);padding:14px 20px;
-  max-width:1180px;margin:0 auto;font-size:.76rem;color:var(--tinta-fraca)}
+  max-width:1180px;margin:0 auto;font-size:.76rem;color:var(--sobre-base-fraco)}
+/* A faixa do rodapé é escura nos dois temas, então o texto dela não pode seguir
+   a tinta do tema: no tema claro a tinta fraca é escura, e escuro sobre escuro
+   some. Esta é a cor feita para faixa escura, como no resto do rodapé. */
 
 @media print{
   .topo,nav,.acoes,.rodape,.torrada,.filtro,.hero{display:none!important}
