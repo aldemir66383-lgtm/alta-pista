@@ -2020,6 +2020,13 @@ const desenharCapa = () => {
     : '<p class="mini-vazio">Sem capa: o cartão mostra as iniciais do evento sobre um fundo azul-noite.</p>';
 };
 
+/** addEventListener que não explode quando o elemento não existe. */
+function aoEvento(seletor, tipo, fn, opcoes) {
+  const alvo = typeof seletor === "string" ? $(seletor) : seletor;
+  if (alvo) alvo.addEventListener(tipo, fn, opcoes);
+  return alvo;
+}
+
 function editorEvento(id) {
   const ev = id ? estado.painel.eventos.find(e => e.id === id) : null;
   const v = ev || {
@@ -2047,7 +2054,8 @@ function editorEvento(id) {
   const caixa = $("#editor-evento");
 
   caixa.innerHTML =
-    '<form id="form-evento" style="margin-top:20px;border-top:1px solid var(--borda);padding-top:20px">' +
+    '<form id="form-evento" novalidate ' +
+      'style="margin-top:20px;border-top:1px solid var(--borda);padding-top:20px">' +
       '<h3>' + (ev ? "Editar evento" : "Novo evento") + '</h3>' +
       '<div class="campos duas">' +
         '<label>Nome do evento<input name="nome" required value="' + esc(v.nome) + '"></label>' +
@@ -2220,9 +2228,9 @@ function editorEvento(id) {
     catch (err) { torrar(mensagemDe(err)); }
     desenharPreviaPeito();
   };
-  $("#arquivo-peito-logo").addEventListener("change", e =>
+  aoEvento("#arquivo-peito-logo", "change", e =>
     enviarImagemDoPeito(e.target, u => { edPeitoLogo = u; }));
-  $("#arquivo-peito-fundo").addEventListener("change", e =>
+  aoEvento("#arquivo-peito-fundo", "change", e =>
     enviarImagemDoPeito(e.target, u => { edPeitoFundo = u; }));
 
   const previaPeitoPronto = () => {
@@ -2238,10 +2246,10 @@ function editorEvento(id) {
   };
   previaPeitoPronto();
 
-  $("#arquivo-peito-pronto").addEventListener("change", e =>
+  aoEvento("#arquivo-peito-pronto", "change", e =>
     enviarImagemDoPeito(e.target, u => { edPeitoPronto = u; previaPeitoPronto(); }));
 
-  $("#previa-peito-pronto").addEventListener("click", e => {
+  aoEvento("#previa-peito-pronto", "click", e => {
     if (e.target.id !== "tirar-peito-pronto") return;
     edPeitoPronto = "";
     previaPeitoPronto();
@@ -2257,7 +2265,7 @@ function editorEvento(id) {
     usaPeito.addEventListener("change", sincronizarPeito);
   }
 
-  $("#arquivo-capa").addEventListener("change", async e => {
+  aoEvento("#arquivo-capa", "change", async e => {
     const arq = e.target.files && e.target.files[0];
     if (!arq) return;
     if (arq.size > 5 * 1024 * 1024) { torrar("Imagem grande demais — use até 5 MB"); return; }
@@ -2295,7 +2303,7 @@ function editorEvento(id) {
 
   $("#cancelar-evento").addEventListener("click", () => { caixa.innerHTML = ""; });
 
-  $("#form-evento").addEventListener("submit", async e => {
+  aoEvento("#form-evento", "submit", async e => {
     e.preventDefault();
     const f = new FormData(e.target);
     const lotes = edLotes.filter(l => String(l.nome || "").trim());
@@ -2304,6 +2312,12 @@ function editorEvento(id) {
       return;
     }
     const nome = String(f.get("nome") || "").trim();
+    if (!nome) {
+      $("#erro-evento").innerHTML = '<div class="erro">Dê um nome ao evento.</div>';
+      const campoNome = e.target.querySelector('[name="nome"]');
+      if (campoNome) { campoNome.scrollIntoView({ block: "center" }); campoNome.focus(); }
+      return;
+    }
     try {
       await api.salvarEvento({
         id: edEventoId || undefined,
@@ -2350,7 +2364,7 @@ function editorEvento(id) {
      da tela — e neste formulário, longo, quase sempre está — quem clicou em
      salvar conclui que o botão não funciona. Aqui o erro vira texto em
      português, junto do botão, e a tela desce até o campo. */
-  $("#form-evento").addEventListener("invalid", evento => {
+  aoEvento("#form-evento", "invalid", evento => {
     const campo = evento.target;
     const rotulo = campo.closest("label");
     const nome = rotulo
