@@ -156,22 +156,26 @@ export function folha(d) {
     '<rect x="1.5" y="1.5" width="' + (LARGURA - 3) + '" height="' + (ALTURA - 3) + '" ' +
       'fill="none" stroke="#d6d6d6" stroke-width="3" rx="18"/>' +
 
-    /* faixa do topo, com a marca à esquerda e o evento ao lado */
+    /* faixa do topo. O selo e a marca só aparecem quando o evento tem a
+       própria arte de logotipo: nem toda corrida quer um selo, e nenhuma quer
+       um que não escolheu. Sem arte, a faixa fica limpa e o nome do evento
+       ocupa a largura toda. Para pôr um logotipo, é só enviar a arte no
+       campo "Logotipo do evento"; para tirar, remover a arte e salvar. */
     '<path d="M18,3 H' + (LARGURA - 18) + ' a15,15 0 0 1 15,15 V104 H3 V18 a15,15 0 0 1 15,-15 z" fill="' + cor + '"/>' +
     (logo
       ? '<circle cx="66" cy="54" r="30" fill="#ffffff"/>' +
         '<image href="' + esc(logo) + '" x="36" y="24" width="60" height="60" ' +
           'preserveAspectRatio="xMidYMid slice" clip-path="url(#logo-' + eu + ')"/>'
-      : '<circle cx="66" cy="54" r="30" fill="' + tinta + '" opacity="0.16"/>' +
-        '<text x="66" y="65" text-anchor="middle" font-size="30" font-weight="800" fill="' + tinta + '">' +
-          esc((d.sigla || "").slice(0, 3).toUpperCase()) + '</text>') +
-    '<text x="112" y="46" font-size="29" font-weight="700" fill="' + tinta + '">' +
-      esc(encurtar(d.evento, 48)) + '</text>' +
-    '<text x="112" y="79" font-size="21" fill="' + tinta + '" opacity="0.85">' +
+      : '') +
+    '<text x="' + (logo ? 112 : 40) + '" y="46" font-size="29" font-weight="700" fill="' + tinta + '">' +
+      esc(encurtar(d.evento, logo ? 48 : 62)) + '</text>' +
+    '<text x="' + (logo ? 112 : 40) + '" y="79" font-size="21" fill="' + tinta + '" opacity="0.85">' +
       esc([d.data, d.local].filter(Boolean).join("  ·  ")) + '</text>' +
-    '<text x="' + (LARGURA - 26) + '" y="70" text-anchor="end" font-size="19" ' +
-      'font-weight="600" letter-spacing="2" fill="' + tinta + '" opacity="0.8">' +
-      esc((d.marca || "").toUpperCase()) + '</text>' +
+    (logo && d.marca
+      ? '<text x="' + (LARGURA - 26) + '" y="70" text-anchor="end" font-size="19" ' +
+        'font-weight="600" letter-spacing="2" fill="' + tinta + '" opacity="0.8">' +
+        esc((d.marca || "").toUpperCase()) + '</text>'
+      : '') +
 
     /* o número, e o número é a folha inteira: é o que se lê a cinquenta
        metros, de dentro de um carro, ou numa foto de chegada tremida */
