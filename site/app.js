@@ -8,6 +8,7 @@ import { CONFIG } from "./config.js";
 import { QR } from "./qr.js";
 import { Pix } from "./pix.js";
 import { folha as folhaDePeito, paginaParaImprimir, formatarNumero } from "./peito.js";
+import { folhaComprovante, paginaDeComprovantes } from "./comprovante.js";
 
 /* =========================================================== utilidades == */
 
@@ -351,6 +352,59 @@ function dadosDaFolha(i, ev, rotulos) {
 }
 
 /** Abre uma janela com as folhas prontas e chama a impressão. */
+/**
+ * Reúne o que o comprovante mostra. É a folha que a pessoa leva na retirada
+ * do kit: os dados que a equipe confere, o código para bipar e os avisos
+ * daquele evento.
+ */
+function dadosDoComprovante(i, rotulos) {
+  const e = i.eventos || {};
+  const id = estado.identidade || {};
+  const r = rotulos || rotulosDasPerguntas();
+  const rotuloStatus = { pago: "pago", pendente: "pendente", espera: "espera", cancelada: "cancelada" };
+  return {
+    organizacao: estado.organizacao || id.nome_site || "",
+    evento: e.nome || "",
+    quando: (e.data ? dataLonga(e.data) : "") + (e.hora ? " · " + hora(e.hora) : ""),
+    local: [e.local, cidadeUF(e)].filter(Boolean).join(" — "),
+    codigo: i.codigo || "",
+    participante: i.participante_nome || "",
+    nascimento: i.participante_nascimento ? dataBR(String(i.participante_nascimento)) : "",
+    // Evento sem numeração não deve deixar uma linha vazia na folha.
+    numero: (e.peito_ativo !== false && i.numero != null)
+      ? formatarNumero(i.numero, e.numero_digitos) : "",
+    percurso: respostaSobre(i.respostas, ["percurso", "distância", "distancia", "prova", "km"], r) ||
+              String(e.distancias || "").split(",")[0].trim(),
+    categoria: respostaSobre(i.respostas, ["categoria", "sexo"], r),
+    camisa: respostaSobre(i.respostas, ["camisa", "camiseta", "tamanho", "blusa"], r),
+    titular: i.eh_titular ? "" : (i.participante_email || ""),
+    contato: [i.participante_email, i.participante_telefone].filter(Boolean).join(" · "),
+    lote: i.lote_nome || "",
+    valor: i.valor_centavos > 0 ? dinheiro(i.valor_centavos) : "Gratuito",
+    status: rotuloStatus[i.status] || i.status,
+    avisos: String(e.retirada_avisos || "").trim()
+  };
+}
+
+/** Abre a janela de impressão com um ou vários comprovantes. */
+function imprimirComprovantes(inscricoes, titulo) {
+  const lista = (inscricoes || []).filter(Boolean);
+  if (!lista.length) { torrar("Nenhuma inscrição para imprimir."); return; }
+  const rotulos = rotulosDasPerguntas();
+  const html = paginaDeComprovantes(
+    lista.map(i => folhaComprovante(dadosDoComprovante(i, rotulos))), titulo);
+  const janela = window.open("", "_blank");
+  if (!janela) {
+    torrar("O navegador bloqueou a janela. Libere os pop-ups deste site.");
+    return;
+  }
+  janela.document.write(html);
+  janela.document.close();
+  const imprimir = () => { try { janela.focus(); janela.print(); } catch (e) {} };
+  if (janela.document.readyState === "complete") setTimeout(imprimir, 400);
+  else janela.addEventListener("load", () => setTimeout(imprimir, 400));
+}
+
 function imprimirPeitos(inscricoes, titulo) {
   const validas = inscricoes.filter(i => i.numero != null);
   if (!validas.length) {
@@ -1196,6 +1250,7 @@ async function telaMinhas() {
       '<div id="pix-' + i.id + '"></div>' +
       '<div class="acoes">' +
         (i.status === "pendente" ? '<button class="btn" data-pix="' + i.id + '">Ver o Pix</button>' : "") +
+        '<button class="btn fantasma" data-comprovante="' + i.id + '">Comprovante de inscrição</button> ' +
         (ev.data ? '<button class="btn fantasma pequeno" data-calendario="' + esc(ev.slug) + '">📅 Salvar na agenda</button>' : "") +
         (i.status !== "pago" && i.status !== "cancelada"
           ? '<button class="btn perigo pequeno" data-cancelar="' + i.id + '">Cancelar inscrição</button>' : "") +
@@ -1803,6 +1858,7 @@ function tabelaInscritos(lista) {
           (i.status !== "pago" && i.status !== "espera" ? '<button class="btn fantasma pequeno" data-status="' + i.id + '|pago">Marcar pago</button> ' : "") +
           (i.status !== "cancelada" ? '<button class="btn perigo pequeno" data-status="' + i.id + '|cancelada">Cancelar</button>' : "") +
           (i.status === "cancelada" ? '<button class="btn fantasma pequeno" data-status="' + i.id + '|pendente">Reabrir</button> ' : "") +
+          '<button class="btn fantasma pequeno" data-comprovante="' + i.id + '">Comprovante</button> ' +
           '<button class="btn perigo pequeno" data-apagar-inscricao="' + i.id + '" ' +
             'title="Tira do banco de vez. Cancelar apenas marca como cancelada.">Apagar</button>' +
         '</td></tr>';
@@ -2076,7 +2132,7 @@ function editorEvento(id) {
     peito_logo_url: "", peito_fundo_url: "", peito_pronto_url: "", peito_ativo: true,
     espera_ativa: true, inscricoes_abertas: true,
     publicado: false, destaque: false,
-    chave_pix: "", recebedor_nome: "", recebedor_cidade: ""
+    chave_pix: "", recebedor_nome: "", recebedor_cidade: "", retirada_avisos: ""
   };
   edEventoId = id;
   edCapa = v.imagem_url || "";
@@ -2129,6 +2185,16 @@ function editorEvento(id) {
           '<label>Enviar arquivo<input type="file" id="arquivo-capa" accept="image/*"></label>' +
         '</div>' +
         '<div id="previa-capa" style="margin-top:10px"></div>' +
+      '</div>' +
+
+      '<div class="sub"><h4>Retirada do kit</h4>' +
+        '<p class="explica">Este texto sai impresso no comprovante de inscrição — a folha ' +
+        'que a pessoa leva na retirada. Escreva onde e quando retirar, o que levar e se ' +
+        'outra pessoa pode retirar no lugar dela. Em branco, o comprovante sai sem esse bloco.</p>' +
+        '<div class="campos" style="margin-top:10px"><label>Avisos da retirada' +
+          '<textarea name="retirada_avisos" rows="4" placeholder="Retirada na secretaria da escola, ' +
+          'sexta das 8h às 17h. Leve documento com foto. Para retirar por outra pessoa, ' +
+          'leve autorização assinada.">' + esc(v.retirada_avisos || "") + '</textarea></label></div>' +
       '</div>' +
 
       '<div class="sub"><h4>Número de peito</h4>' +
@@ -2389,6 +2455,7 @@ function editorEvento(id) {
         chave_pix: String(f.get("chave_pix") || "").trim(),
         recebedor_nome: String(f.get("recebedor_nome") || "").trim(),
         recebedor_cidade: String(f.get("recebedor_cidade") || "").trim(),
+        retirada_avisos: String(f.get("retirada_avisos") || "").trim(),
         lotes,
         perguntas: edPerguntas.filter(p => String(p.rotulo || "").trim())
       });
@@ -2609,7 +2676,7 @@ document.addEventListener("click", async e => {
   if (e.target.closest("#botao-tema")) return alternarTema();
 
   const alvo = e.target.closest("[data-ir],[data-abrir],[data-inscrever],[data-voltar-evento]," +
-    "[data-copiar],[data-pix],[data-cancelar],[data-sair],[data-editar],[data-publicar]," +
+    "[data-copiar],[data-pix],[data-cancelar],[data-sair],[data-editar],[data-publicar],[data-comprovante]," +
     "[data-abrir-fechar],[data-apagar],[data-apagar-inscricao],[data-status],[data-imprimir],[data-recarregar],"
     + "[data-peito],[data-peitos],[data-kit],[data-compartilhar],[data-calendario],[data-certificado]," +
     "[data-resultado],[data-resultados-de],[data-limpar-filtro],[data-tirar-acesso]");
@@ -2725,6 +2792,12 @@ document.addEventListener("click", async e => {
     const i = lista.find(x => x.id === d.peito);
     if (i) imprimirPeitos([i], "Número " + i.numero);
     return;
+  }
+  if (d.comprovante) {
+    const lista = (estado.painel.inscritos || []).concat(estado.minhas || []);
+    const i = lista.find(x => x.id === d.comprovante);
+    if (!i) return torrar("Inscrição não encontrada.");
+    return imprimirComprovantes([i], "Comprovante · " + (i.participante_nome || ""));
   }
   if (d.peitos) {
     const pagos = estado.painel.inscritos.filter(i => i.status === "pago");
