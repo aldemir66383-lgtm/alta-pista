@@ -104,6 +104,18 @@ function qrEmbutido(codigo, x, y, lado) {
  *   fundoUrl    arte pronta cobrindo a folha, atrás do número
  */
 export function folha(d) {
+  /* Arte pronta: quando a organização já tem o peito fechado — da gráfica ou
+     do patrocinador — a folha é a imagem dela e mais nada. Não desenhamos o
+     número por cima: a arte pronta costuma já trazer o número impresso, e
+     escrever em cima cobriria justamente o que precisa ser lido de longe. */
+  const pronto = enderecoDeImagem(d.prontoUrl);
+  if (pronto) {
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + LARGURA + ' ' + ALTURA + '" ' +
+      'width="100%" role="img" aria-label="Número de peito">' +
+      '<image href="' + esc(pronto) + '" x="0" y="0" width="' + LARGURA + '" ' +
+      'height="' + ALTURA + '" preserveAspectRatio="xMidYMid meet"></image></svg>';
+  }
+
   const cor   = /^#[0-9a-fA-F]{6}$/.test(d.cor || "") ? d.cor : "#0B1B2B";
   const tinta = tintaSobre(cor);
   const num   = formatarNumero(d.numero, d.digitos);

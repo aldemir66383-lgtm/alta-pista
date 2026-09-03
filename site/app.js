@@ -345,7 +345,8 @@ function dadosDaFolha(i, ev, rotulos) {
     cor: e.peito_cor || id.cor_acento || "#0B1B2B",
     digitos: e.numero_digitos || 0,
     logoUrl: e.peito_logo_url || "",
-    fundoUrl: e.peito_fundo_url || ""
+    fundoUrl: e.peito_fundo_url || "",
+    prontoUrl: e.peito_pronto_url || ""
   };
 }
 
@@ -1519,7 +1520,7 @@ function valorComTaxa(preco) {
 /* ==================================================== tela: painel ====== */
 
 let edLotes = [], edPerguntas = [], edEventoId = null, edCapa = "";
-let edPeitoLogo = "", edPeitoFundo = "";
+let edPeitoLogo = "", edPeitoFundo = "", edPeitoPronto = "";
 
 async function telaPainel() {
   if (!estado.sessao) { guardarDestino("painel"); return ir("entrar"); }
@@ -1756,7 +1757,8 @@ function tabelaInscritos(lista) {
               : '<button class="btn pequeno" data-kit="' + i.id + '|sim">Entregar kit</button>') +
         '</td>' +
         '<td style="white-space:nowrap">' +
-          (i.numero != null ? '<button class="btn fantasma pequeno" data-peito="' + i.id + '">Nº de peito</button> ' : "") +
+          (i.numero != null && (i.eventos || {}).peito_ativo !== false
+            ? '<button class="btn fantasma pequeno" data-peito="' + i.id + '">Nº de peito</button> ' : "") +
           (i.status === "espera" ? '<button class="btn pequeno" data-status="' + i.id + '|pendente">Chamar da fila</button> ' : "") +
           (i.status !== "pago" && i.status !== "espera" ? '<button class="btn fantasma pequeno" data-status="' + i.id + '|pago">Marcar pago</button> ' : "") +
           (i.status !== "cancelada" ? '<button class="btn perigo pequeno" data-status="' + i.id + '|cancelada">Cancelar</button>' : "") +
@@ -2024,7 +2026,7 @@ function editorEvento(id) {
     nome: "", descricao: "", edital: "", data: "", hora: "07:00", local: "",
     categoria: "Corrida de rua", cidade: "", uf: "", distancias: "", imagem_url: "",
     vagas: 0, numero_inicial: 1, numero_digitos: 4, peito_cor: "",
-    peito_logo_url: "", peito_fundo_url: "",
+    peito_logo_url: "", peito_fundo_url: "", peito_pronto_url: "", peito_ativo: true,
     espera_ativa: true, inscricoes_abertas: true,
     publicado: false, destaque: false,
     chave_pix: "", recebedor_nome: "", recebedor_cidade: ""
@@ -2033,6 +2035,7 @@ function editorEvento(id) {
   edCapa = v.imagem_url || "";
   edPeitoLogo = v.peito_logo_url || "";
   edPeitoFundo = v.peito_fundo_url || "";
+  edPeitoPronto = v.peito_pronto_url || "";
   edLotes = (ev ? (ev.lotes || []).slice().sort((a, b) => a.ordem - b.ordem) : [])
     .map(l => Object.assign({}, l));
   if (!edLotes.length) edLotes = [{ nome: "Lote único", preco_centavos: 0, vende_ate: "", quantidade: 0 }];
@@ -2059,9 +2062,9 @@ function editorEvento(id) {
         '<label>Data<input name="data" type="date" value="' + esc(v.data || "") + '"></label>' +
         '<label>Horário<input name="hora" type="time" value="' + esc(hora(v.hora) || "") + '"></label>' +
         '<label>Vagas <span class="dica">0 para ilimitado</span>' +
-          '<input name="vagas" type="number" min="0" step="1" value="' + (v.vagas || 0) + '"></label>' +
+          '<input name="vagas" type="number" inputmode="numeric" step="1" value="' + (v.vagas || 0) + '"></label>' +
         '<label>Numeração começa em <span class="dica">o nº de peito do primeiro pagante</span>' +
-          '<input name="numero_inicial" type="number" min="1" step="1" value="' +
+          '<input name="numero_inicial" type="number" inputmode="numeric" step="1" value="' +
           (v.numero_inicial || 1) + '"></label>' +
         '<div style="display:flex;flex-direction:column;gap:8px;justify-content:flex-end;padding-bottom:4px">' +
           '<label class="caixinha"><input type="checkbox" name="espera_ativa"' +
@@ -2080,13 +2083,20 @@ function editorEvento(id) {
         '<div id="previa-capa" style="margin-top:10px"></div>' +
       '</div>' +
 
-      '<div class="sub"><h4>Aparência do número de peito</h4>' +
-        '<p class="explica">É a folha que o corredor prende na camisa. ' +
-        'Deixe a cor em branco para usar a do site. A arte de fundo cobre a folha inteira ' +
-        'e recebe um véu claro por cima, para o número continuar legível de longe.</p>' +
+      '<div class="sub"><h4>Número de peito</h4>' +
+        '<label class="caixinha"><input type="checkbox" name="peito_ativo" id="usa-peito"' +
+          (v.peito_ativo === false ? "" : " checked") + '>Este evento usa número de peito</label>' +
+        '<p class="explica">Desmarque para eventos sem numeração — caminhada, aula aberta, ' +
+        'passeio. Sem ela o site não desenha a folha, não oferece a impressão e não mostra ' +
+        'número na lista de inscritos.</p>' +
+
+        '<div id="bloco-peito">' +
+        '<p class="explica" style="margin-top:14px">É a folha que o corredor prende na camisa, ' +
+        'em A5 deitado. Deixe a cor em branco para usar a do site. A arte de fundo cobre a folha ' +
+        'inteira e recebe um véu claro por cima, para o número continuar legível de longe.</p>' +
         '<div class="campos duas" style="margin-top:10px">' +
           '<label>Algarismos <span class="dica">4 faz o corredor 7 virar 0007; 0 mostra o número cru</span>' +
-            '<input name="numero_digitos" type="number" min="0" max="6" step="1" value="' +
+            '<input name="numero_digitos" type="number" inputmode="numeric" step="1" value="' +
             (v.numero_digitos == null ? 4 : v.numero_digitos) + '"></label>' +
           '<label>Cor do evento <span class="dica">vazio = a cor do site</span>' +
             '<input name="peito_cor" type="text" value="' + esc(v.peito_cor || "") + '" ' +
@@ -2099,6 +2109,18 @@ function editorEvento(id) {
           '<button type="button" class="btn fantasma pequeno" id="tirar-peito-fundo">Remover arte</button>' +
         '</div>' +
         '<div id="previa-peito" style="margin-top:12px;max-width:560px"></div>' +
+
+        '<div style="margin-top:18px;border-top:1px solid var(--borda);padding-top:14px">' +
+          '<h4 style="font-size:.95rem">Ou use um peito já pronto</h4>' +
+          '<p class="explica">Se a arte do peito já vem fechada da gráfica ou do patrocinador, ' +
+          'envie-a aqui: a impressão passa a usar essa imagem inteira, no lugar do desenho acima. ' +
+          'Use A5 deitado (proporção 3 por 2) para não sair esticada.</p>' +
+          '<div class="campos" style="margin-top:10px">' +
+            '<label>Enviar a arte pronta<input type="file" id="arquivo-peito-pronto" accept="image/*"></label>' +
+          '</div>' +
+          '<div id="previa-peito-pronto" style="margin-top:10px"></div>' +
+        '</div>' +
+        '</div>' +
       '</div>' +
 
       '<div class="campos"><label>Resumo curto<textarea name="descricao" placeholder="Uma linha que aparece no cartão do evento">' +
@@ -2203,6 +2225,38 @@ function editorEvento(id) {
   $("#arquivo-peito-fundo").addEventListener("change", e =>
     enviarImagemDoPeito(e.target, u => { edPeitoFundo = u; }));
 
+  const previaPeitoPronto = () => {
+    const alvo = $("#previa-peito-pronto");
+    if (!alvo) return;
+    alvo.innerHTML = edPeitoPronto
+      ? '<img src="' + esc(edPeitoPronto) + '" alt="Prévia do peito pronto" ' +
+        'style="max-width:100%;border:1px solid var(--borda);border-radius:var(--r)">' +
+        '<div class="acoes" style="margin-top:8px">' +
+        '<button type="button" class="btn perigo pequeno" id="tirar-peito-pronto">Remover a arte pronta</button>' +
+        '</div>'
+      : '';
+  };
+  previaPeitoPronto();
+
+  $("#arquivo-peito-pronto").addEventListener("change", e =>
+    enviarImagemDoPeito(e.target, u => { edPeitoPronto = u; previaPeitoPronto(); }));
+
+  $("#previa-peito-pronto").addEventListener("click", e => {
+    if (e.target.id !== "tirar-peito-pronto") return;
+    edPeitoPronto = "";
+    previaPeitoPronto();
+  });
+
+  // Desligar o número de peito esconde tudo o que só serve a ele — inclusive
+  // a arte pronta, que sem numeração não tem para onde ir.
+  const usaPeito = $("#usa-peito");
+  const blocoPeito = $("#bloco-peito");
+  const sincronizarPeito = () => { if (blocoPeito) blocoPeito.hidden = !usaPeito.checked; };
+  if (usaPeito && blocoPeito) {
+    sincronizarPeito();
+    usaPeito.addEventListener("change", sincronizarPeito);
+  }
+
   $("#arquivo-capa").addEventListener("change", async e => {
     const arq = e.target.files && e.target.files[0];
     if (!arq) return;
@@ -2272,6 +2326,8 @@ function editorEvento(id) {
         })(),
         peito_logo_url: edPeitoLogo,
         peito_fundo_url: edPeitoFundo,
+        peito_pronto_url: edPeitoPronto,
+        peito_ativo: !!f.get("peito_ativo"),
         espera_ativa: f.get("espera_ativa") === "on",
         destaque: f.get("destaque") === "on",
         descricao: String(f.get("descricao") || "").trim(),
@@ -2288,6 +2344,23 @@ function editorEvento(id) {
       $("#erro-evento").innerHTML = '<div class="erro">' + esc(mensagemDe(err)) + '</div>';
     }
   });
+
+  /* O navegador recusa o envio de um formulário inválido sem dizer nada útil:
+     ele desenha um balãozinho no campo e para por aí. Se o campo estiver fora
+     da tela — e neste formulário, longo, quase sempre está — quem clicou em
+     salvar conclui que o botão não funciona. Aqui o erro vira texto em
+     português, junto do botão, e a tela desce até o campo. */
+  $("#form-evento").addEventListener("invalid", evento => {
+    const campo = evento.target;
+    const rotulo = campo.closest("label");
+    const nome = rotulo
+      ? (rotulo.childNodes[0].textContent || "").trim().replace(/\s+/g, " ")
+      : (campo.name || "este campo");
+    $("#erro-evento").innerHTML = '<div class="erro">Confira <b>' + esc(nome) + '</b>: ' +
+      esc(campo.validationMessage || "valor inválido") + '</div>';
+    campo.scrollIntoView({ behavior: "smooth", block: "center" });
+    try { campo.focus({ preventScroll: true }); } catch (e) { /* campo escondido */ }
+  }, true);   // captura: o evento "invalid" não sobe pela árvore
 
   trazerParaAVista(caixa, 'input[name="nome"]');
 }

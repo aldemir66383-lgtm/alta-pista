@@ -187,7 +187,8 @@ export async function inscrever(dados) {
 export async function minhasInscricoes() {
   return conferir(await sb.from("inscricoes")
     .select("*, eventos(nome, slug, data, hora, local, cidade, uf, distancias, "
-            + "numero_digitos, peito_cor, peito_logo_url, peito_fundo_url)")
+            + "numero_digitos, peito_cor, peito_logo_url, peito_fundo_url, "
+            + "peito_ativo, peito_pronto_url)")
     .order("criado_em", { ascending: false })) || [];
 }
 export async function gerarCobrancaGateway(inscricaoId) {
@@ -348,7 +349,8 @@ export async function apagarInscricao(id) {
 export async function inscritosDoPainel() {
   return conferir(await sb.from("inscricoes")
     .select("*, eventos(nome, slug, data, hora, local, cidade, uf, distancias, "
-            + "numero_digitos, peito_cor, peito_logo_url, peito_fundo_url)")
+            + "numero_digitos, peito_cor, peito_logo_url, peito_fundo_url, "
+            + "peito_ativo, peito_pronto_url)")
     .order("criado_em", { ascending: false })) || [];
 }
 /* --------------------------------------------------------------- equipe -- */

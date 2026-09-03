@@ -1,0 +1,149 @@
+<title>Passo a passo — abrir inscrições</title>
+<style>
+:root{--bg:#f7f6f3;--fg:#23211d;--muted:#7c7768;--card:#fff;--line:#e4e1d9;
+--red:#c0392b;--redbg:#fdecea;--yellow:#8a6d00;--yellowbg:#fbf3d9;--green:#1e7a3d;--greenbg:#e6f4ea;
+--code:#f0ede6;--accent:#2f6fd6}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#1b1a18;--fg:#e9e6df;--muted:#9a9587;
+--card:#242320;--line:#38352f;--redbg:#3a211e;--red:#e8897d;--yellowbg:#332b12;--yellow:#e6c766;
+--greenbg:#1f2f24;--green:#7fc99a;--code:#2c2a25;--accent:#7fa8ee}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:780px;margin:0 auto;padding:28px 18px 90px}
+h1{font-size:23px;margin:0 0 6px}
+.lead{color:var(--muted);margin:0 0 26px}
+.status{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:14px 0;background:var(--card)}
+.status h2{font-size:15px;margin:0 0 4px;letter-spacing:.02em}
+.ok{border-left:5px solid var(--green);background:var(--greenbg)}
+.step{border:1px solid var(--line);border-radius:14px;padding:18px 18px 8px;margin:16px 0;background:var(--card)}
+.step.block{border-left:6px solid var(--red)}
+.step.later{border-left:6px solid var(--yellow)}
+.tag{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.05em;padding:3px 9px;border-radius:999px;vertical-align:middle}
+.tag.block{background:var(--redbg);color:var(--red)}
+.tag.later{background:var(--yellowbg);color:var(--yellow)}
+.step h3{font-size:17px;margin:8px 0 4px;display:flex;gap:9px;align-items:baseline;flex-wrap:wrap}
+.step .where{color:var(--muted);font-size:13.5px;margin:0 0 10px}
+ol,ul{margin:8px 0 14px;padding-left:22px}
+li{margin:6px 0}
+code,kbd{background:var(--code);border-radius:5px;padding:1px 6px;font:13.5px ui-monospace,Consolas,monospace}
+pre{background:var(--code);border-radius:9px;padding:12px 14px;overflow-x:auto;font:13px/1.5 ui-monospace,Consolas,monospace;margin:8px 0}
+table{border-collapse:collapse;width:100%;margin:8px 0 14px;font-size:14.5px}
+td{border:1px solid var(--line);padding:7px 10px;vertical-align:top}
+td:first-child{width:38%;color:var(--muted)}
+.done{color:var(--green);font-weight:700}
+.note{font-size:13.5px;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px;margin-top:6px}
+a{color:var(--accent)}
+</style>
+
+<div class="wrap">
+<h1>Passo a passo para abrir as inscrições hoje</h1>
+<p class="lead">Alta-Pista — <a href="https://alta-pista.vercel.app">alta-pista.vercel.app</a>. Os passos <b style="color:var(--red)">vermelhos</b> travam a abertura; os <b style="color:var(--yellow)">amarelos</b> podem entrar depois, com as inscrições já no ar.</p>
+
+<div class="status ok">
+<h2>✔ O que eu já deixei pronto</h2>
+<ul>
+<li>O site está publicado e no ar em <code>alta-pista.vercel.app</code>, servindo a versão mais nova.</li>
+<li>As funções de pagamento estavam quebradas no ar (davam erro 504, sem aviso) — <b>corrigidas, testadas e publicadas</b>.</li>
+<li>Rodei a bateria completa: <b>30 testes de segurança + 13 de pagamento, todos passaram</b>. Ninguém sem conta consegue ler inscritos, mexer no Pix nem se promover.</li>
+<li>Juntei todo o banco num arquivo só para você colar de uma vez: <code>supabase/_rodar-tudo-de-uma-vez.sql</code> (passo 2).</li>
+</ul>
+</div>
+
+<div class="step block">
+<h3><span class="tag block">TRAVA</span> 1. Ligar o envio de e-mail (Brevo → Supabase)</h3>
+<p class="where">Sem isto <b>ninguém entra</b> — nem você, nem o coordenador, nem os inscritos. O login é só por link no e-mail.</p>
+<ol>
+<li><b>No Brevo, valide o remetente.</b> Menu <b>Senders, Domains &amp; Dedicated IPs → Senders → Add a sender</b>, cadastre <code>contato.altapista@gmail.com</code>. O Brevo manda um e-mail de confirmação para esse endereço — abra e clique no link. Sem isso o envio é recusado depois, sem explicar o motivo.</li>
+<li><b>Pegue a chave SMTP.</b> No menu do seu nome, <b>SMTP &amp; API → SMTP</b>. Anote o <b>Login</b> (algo como <code>8a1b2c001@smtp-brevo.com</code>). Clique em <b>Generate a new SMTP key</b> e copie a chave — ela só aparece uma vez.</li>
+<li><b>No Supabase</b>, em <b>Project Settings → Auth → SMTP Settings</b>, ligue <b>Enable Custom SMTP</b> e preencha:
+<table>
+<tr><td>Sender email</td><td><code>contato.altapista@gmail.com</code></td></tr>
+<tr><td>Sender name</td><td><code>Alta-Pista</code></td></tr>
+<tr><td>Host</td><td><code>smtp-relay.brevo.com</code></td></tr>
+<tr><td>Port</td><td><code>587</code></td></tr>
+<tr><td>Username</td><td>o <b>Login</b> do passo 2 (<code>…@smtp-brevo.com</code>)</td></tr>
+<tr><td>Password</td><td>a <b>SMTP key</b> gerada no passo 2</td></tr>
+</table>
+</li>
+<li><b>Logo abaixo, em <i>Rate limits</i>, suba o limite de e-mails por hora</b> (ex.: 100). Ele continua baixo mesmo com o SMTP próprio ligado — é aqui que todo mundo tropeça achando que já resolveu.</li>
+</ol>
+<p class="note"><b>Pronto quando:</b> você sai da sua conta no site, pede um link de acesso e ele chega em segundos, com “Alta-Pista” no remetente.</p>
+</div>
+
+<div class="step block">
+<h3><span class="tag block">TRAVA</span> 2. Montar o banco inteiro (um arquivo só)</h3>
+<p class="where">Supabase → <b>SQL Editor → New query</b>. Garante a taxa de R$ 1,00 por inscrição, a tabela da cobrança Pix e tudo o que veio depois.</p>
+<ol>
+<li>Abra o arquivo <code>supabase\_rodar-tudo-de-uma-vez.sql</code> (na pasta do projeto).</li>
+<li>Selecione tudo (<kbd>Ctrl</kbd>+<kbd>A</kbd>), copie, cole no SQL Editor e clique em <b>Run</b>.</li>
+<li>Deve terminar com <b>Success</b>. Pode rodar de novo à vontade — não apaga nem estraga nada, mesmo com inscrições abertas.</li>
+</ol>
+<p class="note">Se aparecer um aviso pedindo para ligar o <code>pg_cron</code> em <b>Database → Extensions</b>: ligue e rode o arquivo mais uma vez.</p>
+</div>
+
+<div class="step block">
+<h3><span class="tag block">TRAVA</span> 3. Apontar o endereço do site no Supabase</h3>
+<p class="where">Supabase → <b>Authentication → URL Configuration</b>.</p>
+<ul>
+<li><b>Site URL:</b> <code>https://alta-pista.vercel.app</code></li>
+<li><b>Redirect URLs:</b> a mesma linha, <code>https://alta-pista.vercel.app</code> (e <code>http://localhost:3000</code> se um dia for testar na sua máquina).</li>
+</ul>
+<p class="note">Sem isto o link do e-mail leva para um endereço errado e o login falha.</p>
+</div>
+
+<div class="step block">
+<h3><span class="tag block">TRAVA</span> 4. Virar organizador (você e o coordenador)</h3>
+<p class="where">Primeiro <b>entre no site uma vez</b> com o seu e-mail (e peça para o coordenador entrar com o dele), só para as contas existirem. Depois, Supabase → <b>SQL Editor</b>:</p>
+<pre>insert into public.organizadores (user_id)
+select id from auth.users
+where email in ('aldemir66383@gmail.com', 'EMAIL-DO-COORDENADOR')
+on conflict do nothing;</pre>
+<p class="note">Troque <code>EMAIL-DO-COORDENADOR</code> pelo e-mail real. Recarregue o site: a aba <b>Painel</b> aparece.</p>
+</div>
+
+<div class="step block">
+<h3><span class="tag block">TRAVA</span> 5. Cadastrar o Pix e publicar o evento</h3>
+<p class="where">No site, aba <b>Painel</b>.</p>
+<ol>
+<li>Em <b>Identidade do site</b>: iniciais, nome, cor, rodapé (contato/WhatsApp/Instagram).</li>
+<li>Salve os <b>dados do Pix</b>: chave, nome do recebedor <i>exatamente como está na conta</i>, cidade.</li>
+<li>Crie o evento (nasce como <b>rascunho</b>), monte lotes, edital e perguntas — o botão <i>Usar o conjunto de corrida</i> já traz os campos padrão.</li>
+<li>Clique em <b>Publicar</b>. Só aí o evento aparece no site.</li>
+</ol>
+<p class="note">A confirmação do Pix, por enquanto, é manual: o inscrito mostra o comprovante e você clica em <b>Marcar pago</b> no painel. Isso já funciona hoje. A confirmação automática é o passo 7.</p>
+</div>
+
+<div class="step later">
+<h3><span class="tag later">DEPOIS</span> 6. Tirar o site antigo do ar (Netlify)</h3>
+<p class="where">Você não consegue fazer só pelo meu lado — precisa da sua conta na Netlify.</p>
+<p><code>alta-pista.netlify.app</code> ainda responde, com uma <b>versão velha</b> (sem a taxa, sem a confirmação automática) e conversando com o <b>mesmo banco</b>. Se alguém entrar por lá, se inscreve de verdade num site desatualizado.</p>
+<ul>
+<li>Entre em <a href="https://app.netlify.com">app.netlify.com</a> → site <b>alta-pista</b> → <b>Site configuration → Danger zone</b> → <b>Delete this site</b>. (Ou <b>Stop builds</b> e depois apague.)</li>
+</ul>
+</div>
+
+<div class="step later">
+<h3><span class="tag later">DEPOIS</span> 7. Confirmação automática do Pix (Mercado Pago)</h3>
+<p class="where">Enquanto não estiver ligado, o site usa QR estático + <b>Marcar pago</b> manual. Dá para abrir as inscrições sem isto.</p>
+<ol>
+<li><b>Mercado Pago →</b> <i>Seus negócios → Configurações → Gestão e desenvolvimento → Suas integrações</i>: crie uma aplicação e pegue o <b>Access token</b> (comece pelo de teste, <code>TEST-…</code>; depois troque pelo de produção <code>APP_USR-…</code>).</li>
+<li><b>Vercel →</b> projeto <b>alta-pista → Settings → Environment Variables</b>. Adicione:
+<table>
+<tr><td><code>SUPABASE_URL</code></td><td><code>https://nvbkofitjjragqrutull.supabase.co</code></td></tr>
+<tr><td><code>SUPABASE_SERVICE_ROLE_KEY</code></td><td>a <b>secret key</b> em Supabase → Project Settings → API Keys — <b>é segredo</b>, nunca vai para o site nem para o Git</td></tr>
+<tr><td><code>MERCADOPAGO_ACCESS_TOKEN</code></td><td>o token do passo 1 — <b>é segredo</b></td></tr>
+<tr><td><code>MERCADOPAGO_WEBHOOK_SECRET</code></td><td>opcional: a assinatura secreta que o Mercado Pago mostra ao configurar Webhooks</td></tr>
+</table>
+</li>
+<li>Na Vercel, faça um <b>Redeploy</b> para as variáveis valerem.</li>
+<li><b>Mercado Pago → Webhooks</b>: URL <code>https://alta-pista.vercel.app/api/webhook-mercadopago-pix</code>, evento <b>Pagamentos</b>.</li>
+<li>Teste: faça uma inscrição e pague (usuário de teste no sandbox, ou valor pequeno na produção). Rode o atalho <b>Conferir pagamento automatico.cmd</b> — a inscrição deve virar <b>paga</b> sozinha em menos de um minuto.</li>
+</ol>
+</div>
+
+<div class="step">
+<h3>Ordem enxuta para hoje</h3>
+<p><b>1 → 2 → 3 → 4 → 5</b> e as inscrições podem abrir, com confirmação manual do Pix. <b>6</b> assim que der (risco do site velho). <b>7</b> quando tiver a conta do Mercado Pago.</p>
+<p class="note">As chaves que eu <b>posso</b> pedir e colocar no código já estão no lugar (a URL e a chave pública do Supabase, no <code>site/config.js</code>). As dos passos acima são de contas suas ou segredos — só você consegue gerá-las e colá-las nos painéis.</p>
+</div>
+
+</div>

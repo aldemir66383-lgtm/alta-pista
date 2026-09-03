@@ -1,0 +1,462 @@
+<title>SQL para o Supabase</title>
+<style>
+:root{--bg:#f7f6f3;--fg:#23211d;--muted:#7c7768;--card:#fff;--line:#e4e1d9;--accent:#2f6fd6;--code:#f0ede6;--ok:#1e7a3d}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#1b1a18;--fg:#e9e6df;--muted:#9a9587;--card:#242320;--line:#38352f;--accent:#7fa8ee;--code:#2c2a25;--ok:#7fc99a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:820px;margin:0 auto;padding:26px 18px 80px}
+h1{font-size:22px;margin:0 0 6px}
+p{margin:8px 0}
+.muted{color:var(--muted)}
+ol{padding-left:22px}
+li{margin:7px 0}
+button{font:600 16px/1 inherit;padding:14px 22px;border-radius:10px;border:1px solid var(--accent);
+background:var(--accent);color:#fff;cursor:pointer;margin:14px 0}
+button:active{transform:translateY(1px)}
+#msg{display:inline-block;margin-left:12px;color:var(--ok);font-weight:700}
+textarea{width:100%;height:340px;margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:10px;
+background:var(--code);color:var(--fg);font:12.5px/1.5 ui-monospace,Consolas,monospace;white-space:pre;overflow:auto}
+code{background:var(--code);border-radius:5px;padding:1px 6px;font:13.5px ui-monospace,Consolas,monospace}
+a{color:var(--accent)}
+</style>
+<div class="wrap">
+<h1>SQL do passo 2 &mdash; para colar no Supabase</h1>
+<p class="muted">Isto liga a taxa de R$&nbsp;1,00 por inscri&ccedil;&atilde;o e a tabela da cobran&ccedil;a Pix. Pode rodar quantas vezes quiser: n&atilde;o apaga nada.</p>
+
+<ol>
+<li>Clique no bot&atilde;o abaixo &mdash; ele copia todo o SQL para a &aacute;rea de transfer&ecirc;ncia.</li>
+<li>No Supabase, abra <b>SQL Editor</b> &rarr; <b>New query</b>.</li>
+<li>Clique dentro da &aacute;rea de texto e cole (<b>Ctrl&nbsp;+&nbsp;V</b>).</li>
+<li>Clique em <b>Run</b>. Tem que terminar com <b>Success</b>.</li>
+</ol>
+
+<button id="btn">Copiar todo o SQL</button><span id="msg"></span>
+
+<p class="muted">Se o bot&atilde;o n&atilde;o funcionar: clique dentro da caixa abaixo, aperte <b>Ctrl&nbsp;+&nbsp;A</b> (seleciona tudo) e <b>Ctrl&nbsp;+&nbsp;C</b> (copia).</p>
+<textarea id="sql" spellcheck="false" wrap="off">-- =============================================================================
+--  Balcão de Inscrições — SÓ O QUE PODE ESTAR FALTANDO (0015 + 0016)
+--  Cole tudo no SQL Editor do Supabase e clique em Run. Idempotente.
+--  Tudo de 0001 a 0014 já está aplicado (os 30 testes de segurança provam).
+-- =============================================================================
+
+-- ####################################################### 0015_pix_mercadopago.sql
+
+/* ============================================================
+   0015 - Cobrança Pix automática pelo Mercado Pago
+
+   Mantém uma cobrança única, com valor imutável, para cada
+   inscrição pendente. Nenhuma chave do Mercado Pago fica no
+   banco ou no navegador: o access token vive somente nas
+   variáveis de ambiente das funções da Netlify.
+
+   Cole no SQL Editor do Supabase e clique em Run.
+   Idempotente: pode rodar de novo sem estragar nada.
+   ============================================================ */
+
+create table if not exists public.pix_cobrancas (
+  id                uuid primary key default gen_random_uuid(),
+  inscricao_id      uuid not null references public.inscricoes(id) on delete cascade,
+  correlation_id    uuid not null unique,          -- external_reference enviado ao Mercado Pago
+  transaction_id    text unique,                   -- id do pagamento no Mercado Pago
+  valor_centavos    integer not null check (valor_centavos &gt; 0),
+  status            text not null default &#x27;ativa&#x27;
+                    check (status in (&#x27;ativa&#x27;,&#x27;paga&#x27;,&#x27;expirada&#x27;,&#x27;cancelada&#x27;,&#x27;falhou&#x27;)),
+  payload_pix       text,                          -- &quot;copia e cola&quot; (EMV) do QR
+  expira_em         timestamptz not null,
+  end_to_end_id     text unique,                   -- referência da liquidação confirmada
+  pago_em           timestamptz,
+  criado_em         timestamptz not null default now(),
+  atualizado_em     timestamptz not null default now()
+);
+
+create index if not exists pix_cobrancas_por_inscricao
+  on public.pix_cobrancas (inscricao_id, status, expira_em desc);
+
+alter table public.pix_cobrancas enable row level security;
+
+-- A tabela não é exposta ao navegador. Só a função de servidor, autenticada
+-- com service_role, cria e atualiza cobranças após falar com o Mercado Pago.
+revoke all on table public.pix_cobrancas from anon, authenticated;
+
+/* O número de peito já é atribuído pelo gatilho existente quando a inscrição
+   muda para &quot;pago&quot;. A função de webhook atualiza public.inscricoes usando
+   service_role, apenas depois de reconsultar o pagamento na API do Mercado
+   Pago e conferir estado e valor. */
+
+-- ####################################################### 0016_donos_e_taxa.sql
+
+/* ============================================================
+   0016 - Cada evento com o seu dono, e a taxa de serviço
+
+   Duas mudanças que andam juntas e transformam o site de
+   &quot;as corridas de uma escola&quot; em plataforma:
+
+   1. O evento passa a ter dono. Quem cria administra o próprio
+      evento e só enxerga os próprios inscritos. Quem está na
+      tabela `organizadores` continua enxergando tudo — é a
+      administração da plataforma, não mais a única dona.
+
+   2. Taxa de serviço de R$ 1,00 por inscrição, somada ao preço
+      do lote e exibida ao participante antes do pagamento,
+      conforme o termo de uso em site/termos.html.
+
+   Sobre os valores, para não haver ambiguidade adiante:
+
+     valor_centavos  = o TOTAL que o participante paga
+     taxa_centavos   = a parte desse total que é da plataforma
+
+   Ou seja, `valor_centavos` continua sendo o que a cobrança Pix
+   usa — nada do que já existe muda de significado. O que sobra
+   para o organizador é `valor_centavos - taxa_centavos`.
+
+   Idempotente: pode rodar de novo à vontade.
+   ============================================================ */
+
+-- -----------------------------------------------------------------------------
+-- 1. O dono do evento e a chave Pix dele
+-- -----------------------------------------------------------------------------
+
+alter table public.eventos
+  add column if not exists dono_id uuid references auth.users(id) on delete set null;
+
+/* Cada organizador recebe na própria conta: sem isto, o dinheiro de todo mundo
+   cairia na mesma chave — o oposto do que o termo de uso promete. Em branco,
+   o evento usa a chave geral da tabela `configuracao`, que é o comportamento
+   dos eventos que já existiam. */
+alter table public.eventos
+  add column if not exists chave_pix        text not null default &#x27;&#x27;;
+alter table public.eventos
+  add column if not exists recebedor_nome   text not null default &#x27;&#x27;;
+alter table public.eventos
+  add column if not exists recebedor_cidade text not null default &#x27;&#x27;;
+
+create index if not exists eventos_dono_idx on public.eventos (dono_id);
+
+/* Dono do evento. SECURITY DEFINER porque precisa enxergar a linha do evento
+   mesmo quando a política de leitura ainda não deixaria. */
+create or replace function public.eh_dono(p_evento uuid)
+returns boolean
+language sql stable security definer set search_path = public, pg_temp as $$
+  select exists (
+    select 1 from public.eventos e
+     where e.id = p_evento and e.dono_id is not null and e.dono_id = auth.uid()
+  );
+$$;
+
+/* Quem manda neste evento: o dono ou a administração da plataforma. */
+create or replace function public.manda_no_evento(p_evento uuid)
+returns boolean
+language sql stable security definer set search_path = public, pg_temp as $$
+  select public.eh_organizador() or public.eh_dono(p_evento);
+$$;
+
+-- -----------------------------------------------------------------------------
+-- 2. Quem pode criar, ver e mexer em evento
+-- -----------------------------------------------------------------------------
+
+/* Ler: o público vê os publicados; o dono vê os seus, publicados ou não; a
+   administração vê tudo. */
+drop policy if exists &quot;eventos: publicados sao publicos&quot; on public.eventos;
+create policy &quot;eventos: publicados sao publicos&quot; on public.eventos
+  for select using (
+    publicado
+    or public.eh_organizador()
+    or (dono_id is not null and dono_id = auth.uid())
+  );
+
+/* Criar: qualquer pessoa com conta, desde que se declare dona do próprio
+   evento. A administração pode criar em nome da casa, sem dono. */
+drop policy if exists &quot;eventos: organizador cria&quot; on public.eventos;
+create policy &quot;eventos: organizador cria&quot; on public.eventos
+  for insert with check (
+    (auth.uid() is not null and dono_id = auth.uid())
+    or public.eh_organizador()
+  );
+
+/* Alterar e apagar: o dono ou a administração. O `with check` impede que o
+   dono passe o evento para outra pessoa e perca o próprio acesso sem querer. */
+drop policy if exists &quot;eventos: organizador altera&quot; on public.eventos;
+create policy &quot;eventos: organizador altera&quot; on public.eventos
+  for update using (
+    public.eh_organizador() or (dono_id is not null and dono_id = auth.uid())
+  ) with check (
+    public.eh_organizador() or (dono_id is not null and dono_id = auth.uid())
+  );
+
+drop policy if exists &quot;eventos: organizador apaga&quot; on public.eventos;
+create policy &quot;eventos: organizador apaga&quot; on public.eventos
+  for delete using (
+    public.eh_organizador() or (dono_id is not null and dono_id = auth.uid())
+  );
+
+-- -----------------------------------------------------------------------------
+-- 3. Lotes e perguntas seguem o dono do evento
+-- -----------------------------------------------------------------------------
+
+drop policy if exists &quot;lotes: organizador escreve&quot; on public.lotes;
+create policy &quot;lotes: organizador escreve&quot; on public.lotes
+  for all using (public.manda_no_evento(evento_id))
+  with check (public.manda_no_evento(evento_id));
+
+drop policy if exists &quot;perguntas: organizador escreve&quot; on public.perguntas;
+create policy &quot;perguntas: organizador escreve&quot; on public.perguntas
+  for all using (public.manda_no_evento(evento_id))
+  with check (public.manda_no_evento(evento_id));
+
+-- -----------------------------------------------------------------------------
+-- 4. Inscritos: cada dono enxerga só os do próprio evento
+-- -----------------------------------------------------------------------------
+
+drop policy if exists &quot;inscricoes: dono ou organizador le&quot; on public.inscricoes;
+create policy &quot;inscricoes: dono ou organizador le&quot; on public.inscricoes
+  for select using (
+    titular_id = auth.uid()
+    or public.eh_organizador()
+    or public.eh_dono(evento_id)
+  );
+
+drop policy if exists &quot;inscricoes: organizador altera&quot; on public.inscricoes;
+create policy &quot;inscricoes: organizador altera&quot; on public.inscricoes
+  for update using (public.manda_no_evento(evento_id))
+  with check (public.manda_no_evento(evento_id));
+
+drop policy if exists &quot;inscricoes: organizador apaga&quot; on public.inscricoes;
+create policy &quot;inscricoes: organizador apaga&quot; on public.inscricoes
+  for delete using (public.manda_no_evento(evento_id));
+
+-- -----------------------------------------------------------------------------
+-- 5. A taxa de serviço
+-- -----------------------------------------------------------------------------
+
+/* Fica no banco, não no código: mudar o valor um dia não exige publicar o
+   site de novo. O termo de uso promete aviso de 30 dias antes de mudar. */
+alter table public.configuracao
+  add column if not exists taxa_centavos integer not null default 100
+  check (taxa_centavos &gt;= 0);
+
+alter table public.inscricoes
+  add column if not exists taxa_centavos integer not null default 0
+  check (taxa_centavos &gt;= 0);
+
+/* Pública: o site precisa dizer ao participante quanto é a taxa ANTES de ele
+   pagar, e quem ainda não tem conta também vê a página do evento. */
+create or replace function public.taxa_servico()
+returns integer
+language sql stable security definer set search_path = public, pg_temp as $$
+  select coalesce((select taxa_centavos from public.configuracao where id), 0);
+$$;
+grant execute on function public.taxa_servico() to anon, authenticated;
+
+-- -----------------------------------------------------------------------------
+-- 6. Inscrever passa a somar a taxa
+-- -----------------------------------------------------------------------------
+
+create or replace function public.inscrever(
+  p_evento      uuid,
+  p_nome        text,
+  p_nascimento  date        default null,
+  p_email       text        default &#x27;&#x27;,
+  p_telefone    text        default &#x27;&#x27;,
+  p_eh_titular  boolean     default true,
+  p_respostas   jsonb       default &#x27;{}&#x27;::jsonb,
+  p_observacao  text        default &#x27;&#x27;
+) returns jsonb
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  v_evento   public.eventos;
+  v_lote     public.lotes;
+  v_ocupadas integer;
+  v_preco    integer;   -- o que o organizador definiu
+  v_taxa     integer;   -- a parte da plataforma
+  v_valor    integer;   -- o total que o participante paga
+  v_status   text;
+  v_id       uuid;
+begin
+  if auth.uid() is null then
+    raise exception &#x27;Entre na sua conta para se inscrever.&#x27; using errcode = &#x27;28000&#x27;;
+  end if;
+  if coalesce(btrim(p_nome), &#x27;&#x27;) = &#x27;&#x27; then
+    raise exception &#x27;Informe o nome do participante.&#x27; using errcode = &#x27;22023&#x27;;
+  end if;
+
+  -- serializa as inscrições do mesmo evento: sem isso, dois cliques
+  -- simultâneos poderiam ocupar a mesma última vaga
+  perform pg_advisory_xact_lock(hashtext(p_evento::text));
+
+  select * into v_evento from public.eventos where id = p_evento and publicado;
+  if not found then
+    raise exception &#x27;Evento não encontrado.&#x27; using errcode = &#x27;22023&#x27;;
+  end if;
+  if not v_evento.inscricoes_abertas then
+    raise exception &#x27;As inscrições deste evento estão encerradas.&#x27; using errcode = &#x27;22023&#x27;;
+  end if;
+
+  -- primeiro lote que não venceu nem esgotou
+  select l.* into v_lote
+    from public.lotes l
+   where l.evento_id = p_evento
+     and (l.vende_ate is null or l.vende_ate &gt;= current_date)
+     and (l.quantidade = 0 or (
+           select count(*) from public.inscricoes i
+            where i.lote_id = l.id and i.status in (&#x27;pendente&#x27;,&#x27;pago&#x27;)
+         ) &lt; l.quantidade)
+   order by l.ordem
+   limit 1;
+
+  select count(*) into v_ocupadas
+    from public.inscricoes
+   where evento_id = p_evento and status in (&#x27;pendente&#x27;,&#x27;pago&#x27;);
+
+  if v_lote.id is null or (v_evento.vagas &gt; 0 and v_ocupadas &gt;= v_evento.vagas) then
+    if not v_evento.espera_ativa then
+      raise exception &#x27;As vagas acabaram.&#x27; using errcode = &#x27;22023&#x27;;
+    end if;
+    v_status := &#x27;espera&#x27;;
+    v_preco  := coalesce((select preco_centavos from public.lotes
+                           where evento_id = p_evento order by ordem desc limit 1), 0);
+  else
+    v_preco  := v_lote.preco_centavos;
+    v_status := case when v_preco &gt; 0 then &#x27;pendente&#x27; else &#x27;pago&#x27; end;
+  end if;
+
+  -- Evento gratuito não gera taxa: somar R$ 1,00 a uma inscrição de graça
+  -- transformaria &quot;gratuito&quot; em mentira na cara do participante.
+  v_taxa  := case when v_preco &gt; 0 then public.taxa_servico() else 0 end;
+  v_valor := v_preco + v_taxa;
+
+  insert into public.inscricoes (
+    evento_id, lote_id, titular_id, participante_nome, participante_nascimento,
+    participante_email, participante_telefone, eh_titular, respostas, observacao,
+    codigo, lote_nome, valor_centavos, taxa_centavos, status, pago_em
+  ) values (
+    p_evento, v_lote.id, auth.uid(), btrim(p_nome), p_nascimento,
+    coalesce(p_email,&#x27;&#x27;), coalesce(p_telefone,&#x27;&#x27;), coalesce(p_eh_titular, true),
+    coalesce(p_respostas, &#x27;{}&#x27;::jsonb), coalesce(p_observacao,&#x27;&#x27;),
+    public.gerar_codigo(), coalesce(v_lote.nome, &#x27;&#x27;), v_valor, v_taxa, v_status,
+    case when v_status = &#x27;pago&#x27; then now() else null end
+  ) returning id into v_id;
+
+  return (select to_jsonb(i) from public.inscricoes i where i.id = v_id);
+end $$;
+
+-- -----------------------------------------------------------------------------
+-- 7. A cobrança usa a chave do dono do evento
+-- -----------------------------------------------------------------------------
+
+create or replace function public.cobranca(p_inscricao uuid)
+returns jsonb
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  v_ins    public.inscricoes;
+  v_ev     public.eventos;
+  v_cfg    public.configuracao;
+  v_chave  text;
+  v_nome   text;
+  v_cidade text;
+begin
+  -- este teste precisa vir ANTES da comparação: com auth.uid() nulo,
+  -- &quot;titular_id &lt;&gt; auth.uid()&quot; resulta em NULL e o IF não dispararia
+  if auth.uid() is null then
+    raise exception &#x27;Entre na sua conta.&#x27; using errcode = &#x27;28000&#x27;;
+  end if;
+  select * into v_ins from public.inscricoes where id = p_inscricao;
+  if not found then
+    raise exception &#x27;Inscrição não encontrada.&#x27; using errcode = &#x27;22023&#x27;;
+  end if;
+  if v_ins.titular_id &lt;&gt; auth.uid() and not public.manda_no_evento(v_ins.evento_id) then
+    raise exception &#x27;Esta inscrição não é sua.&#x27; using errcode = &#x27;42501&#x27;;
+  end if;
+  if v_ins.status &lt;&gt; &#x27;pendente&#x27; or v_ins.valor_centavos &lt;= 0 then
+    return null;  -- nada a cobrar
+  end if;
+
+  select * into v_ev  from public.eventos     where id = v_ins.evento_id;
+  select * into v_cfg from public.configuracao where id;
+
+  -- a chave do evento manda; sem ela, a chave da casa
+  v_chave  := coalesce(nullif(btrim(v_ev.chave_pix), &#x27;&#x27;), v_cfg.chave_pix);
+  v_nome   := coalesce(nullif(btrim(v_ev.recebedor_nome), &#x27;&#x27;),
+                       nullif(v_cfg.beneficiario, &#x27;&#x27;), v_cfg.organizacao);
+  v_cidade := coalesce(nullif(btrim(v_ev.recebedor_cidade), &#x27;&#x27;), v_cfg.cidade);
+
+  if coalesce(btrim(v_chave), &#x27;&#x27;) = &#x27;&#x27; then
+    return null;  -- chave Pix ainda não cadastrada
+  end if;
+
+  return jsonb_build_object(
+    &#x27;chave&#x27;,        v_chave,
+    &#x27;beneficiario&#x27;, v_nome,
+    &#x27;cidade&#x27;,       v_cidade,
+    &#x27;centavos&#x27;,     v_ins.valor_centavos,
+    &#x27;taxa&#x27;,         v_ins.taxa_centavos,
+    &#x27;txid&#x27;,         replace(v_ins.codigo, &#x27;-&#x27;, &#x27;&#x27;)
+  );
+end $$;
+
+-- -----------------------------------------------------------------------------
+-- 8. Extrato: quanto cada evento deve de taxa
+-- -----------------------------------------------------------------------------
+
+/* Só conta inscrição paga: cancelada, pendente ou reembolsada não gera taxa,
+   como diz o termo de uso. O dono vê os próprios eventos; a administração da
+   plataforma vê todos. */
+create or replace function public.extrato_taxas()
+returns jsonb
+language sql stable security definer set search_path = public, pg_temp as $$
+  select coalesce(jsonb_agg(x order by x-&gt;&gt;&#x27;nome&#x27;), &#x27;[]&#x27;::jsonb) from (
+    select jsonb_build_object(
+      &#x27;evento_id&#x27;,    e.id,
+      &#x27;nome&#x27;,         e.nome,
+      &#x27;data&#x27;,         e.data,
+      &#x27;pagas&#x27;,        count(i.id),
+      &#x27;arrecadado&#x27;,   coalesce(sum(i.valor_centavos), 0),
+      &#x27;taxa_devida&#x27;,  coalesce(sum(i.taxa_centavos), 0),
+      &#x27;liquido&#x27;,      coalesce(sum(i.valor_centavos - i.taxa_centavos), 0)
+    ) as x
+    from public.eventos e
+    left join public.inscricoes i
+      on i.evento_id = e.id and i.status = &#x27;pago&#x27;
+    where public.eh_organizador()
+       or (e.dono_id is not null and e.dono_id = auth.uid())
+    group by e.id, e.nome, e.data
+  ) s;
+$$;
+grant execute on function public.extrato_taxas() to authenticated;
+
+-- -----------------------------------------------------------------------------
+-- 9. Eventos que eu administro (para o painel saber o que mostrar)
+-- -----------------------------------------------------------------------------
+
+create or replace function public.sou_dono_de_algum()
+returns boolean
+language sql stable security definer set search_path = public, pg_temp as $$
+  select exists (
+    select 1 from public.eventos e
+     where e.dono_id is not null and e.dono_id = auth.uid()
+  );
+$$;
+grant execute on function public.sou_dono_de_algum() to authenticated;
+</textarea>
+
+<p class="muted" style="margin-top:20px">O arquivo tamb&eacute;m est&aacute; salvo na pasta do projeto em<br>
+<code>Balc&atilde;o de Inscri&ccedil;&otilde;es\supabase\_so-o-que-falta.sql</code></p>
+</div>
+<script>
+var ta = document.getElementById('sql');
+var msg = document.getElementById('msg');
+document.getElementById('btn').addEventListener('click', function () {
+  ta.focus(); ta.select();
+  var done = false;
+  try { done = document.execCommand('copy'); } catch (e) { done = false; }
+  if (!done && navigator.clipboard) {
+    navigator.clipboard.writeText(ta.value).then(function () {
+      msg.textContent = 'Copiado! Agora cole no Supabase.';
+    }, function () {
+      msg.textContent = 'Selecione a caixa e use Ctrl+C.';
+    });
+    return;
+  }
+  msg.textContent = done ? 'Copiado! Agora cole no Supabase.' : 'Selecione a caixa e use Ctrl+C.';
+  window.getSelection().removeAllRanges();
+});
+</script>
