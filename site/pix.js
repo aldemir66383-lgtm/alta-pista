@@ -17,9 +17,24 @@ export const Pix = (function () {
     const t = semAcento(s).replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 25);
     return t || "***";
   }
+  // A chave vai no código exatamente como o banco espera. Gente digita CPF,
+  // CNPJ e telefone com pontuação, e o banco recusa o QR inteiro quando a chave
+  // não bate com um formato válido. Aqui a pontuação sai — sem tocar em e-mail
+  // nem em chave aleatória, que têm "." e "-" de verdade.
+  function chavePix(k) {
+    const s = String(k == null ? "" : k).trim();
+    if (!s || s.indexOf("@") >= 0) return s;                         // e-mail: como veio
+    if (s.charAt(0) === "+") return "+" + s.slice(1).replace(/\D/g, "");  // telefone com +55
+    const d = s.replace(/\D/g, "");
+    if (/^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(s)) return d;             // CPF mascarado
+    if (/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(s)) return d;      // CNPJ mascarado
+    if (/[()\s]/.test(s) && /^[\d()\s.+-]+$/.test(s) && (d.length === 10 || d.length === 11))
+      return "+55" + d;                                              // telefone com (DDD) e espaços
+    return s;                                                        // chave aleatória, CPF/CNPJ já cru
+  }
   function brcode(o) {
     let s = campo("00", "01") + campo("01", "12");
-    s += campo("26", campo("00", "br.gov.bcb.pix") + campo("01", (o.chave || "").trim()));
+    s += campo("26", campo("00", "br.gov.bcb.pix") + campo("01", chavePix(o.chave)));
     s += campo("52", "0000") + campo("53", "986");
     if (o.centavos > 0) s += campo("54", (o.centavos / 100).toFixed(2));
     s += campo("58", "BR");
@@ -29,5 +44,5 @@ export const Pix = (function () {
     s += "6304";
     return s + crc16(s);
   }
-  return { brcode, crc16 };
+  return { brcode, crc16, chavePix };
 })();

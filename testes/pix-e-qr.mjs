@@ -118,6 +118,36 @@ teste("campo vazio não quebra a montagem", () => {
   confere(c["60"].length > 0, "deveria cair numa cidade padrão");
 });
 
+console.log("\nA chave, normalizada para o formato que o banco aceita:\n");
+
+teste("CPF com pontos e traço vira só dígitos", () => {
+  igual(Pix.chavePix("529.982.247-25"), "52998224725", "CPF mascarado");
+});
+
+teste("CNPJ mascarado vira só dígitos", () => {
+  igual(Pix.chavePix("12.345.678/0001-90"), "12345678000190", "CNPJ mascarado");
+});
+
+teste("telefone com (DDD) e traço ganha +55", () => {
+  igual(Pix.chavePix("(83) 98765-4321"), "+5583987654321", "telefone sem prefixo");
+});
+
+teste("telefone que já tem + só perde a pontuação", () => {
+  igual(Pix.chavePix("+55 83 98765-4321"), "+5583987654321", "telefone com +");
+});
+
+teste("e-mail e chave aleatória passam intactos", () => {
+  igual(Pix.chavePix("corrida@escola.edu.br"), "corrida@escola.edu.br", "e-mail");
+  const evp = "123e4567-e89b-12d3-a456-426614174000";
+  igual(Pix.chavePix(evp), evp, "chave aleatória com traços");
+});
+
+teste("chave mascarada não estraga o CRC", () => {
+  const v = Pix.brcode({ ...cobranca, chave: "529.982.247-25" });
+  igual(Pix.crc16(v.slice(0, -4)), v.slice(-4), "CRC com a chave normalizada");
+  igual(lerCampos(lerCampos(v)["26"])["01"], "52998224725", "a chave no código sai limpa");
+});
+
 console.log("\nO QR Code, lido de volta por biblioteca independente:\n");
 
 function leituraDeVolta(texto, escala = 8, borda = 4) {
