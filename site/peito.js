@@ -200,7 +200,11 @@ export function paginaParaImprimir(folhas, titulo) {
   return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">' +
     '<meta name="viewport" content="width=device-width, initial-scale=1">' +
     '<title>' + esc(titulo || "Números de peito") + '</title><style>' +
-    '@page { size: A4 landscape; margin: 10mm; }' +
+    // A5 deitado: 210 x 148 mm. É a metade da folha A4 e o tamanho de peito
+    // que se usa em corrida de rua — A4 inteiro fica maior que a barriga de
+    // muita gente. A proporção do desenho (980 x 700) já bate com a do A5
+    // deitado, então nada é esticado nem cortado.
+    '@page { size: A5 landscape; margin: 6mm; }' +
     'html,body { margin:0; padding:0; background:#f2f2f2; }' +
     '.folha { page-break-after: always; break-after: page; padding:14px; }' +
     '.folha:last-child { page-break-after: auto; break-after: auto; }' +
@@ -210,7 +214,7 @@ export function paginaParaImprimir(folhas, titulo) {
     '@media print { .aviso { display:none; } body { background:#fff; } }' +
     '</style></head><body>' +
     '<div class="aviso">Use <b>Imprimir</b> no seu navegador. ' +
-    'Escolha papel A4 deitado, uma folha por página. ' +
+    'Escolha papel <b>A5 deitado</b>, uma folha por página. ' +
     'Este aviso não sai na impressão.</div>' +
     folhas.map(s => '<div class="folha">' + s + '</div>').join("") +
     '</body></html>';
