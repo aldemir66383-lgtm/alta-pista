@@ -566,3 +566,14 @@ td .contato{color:var(--tinta-fraca);font-size:.81rem}
   body{background:#fff;color:#000}
   .painel{box-shadow:none;border:0;padding:0}
 }
+
+
+/* Ações repetidas junto do nome, na lista de inscritos.
+   A tabela do painel rola na horizontal, e no celular a coluna dos botões
+   fica fora da tela: quem confere pagamento pelo telefone não alcançava o
+   "Marcar pago". Em tela larga elas não aparecem, porque a coluna própria
+   já está à vista. */
+.acoes-no-celular{display:none}
+@media (max-width:760px){
+  .acoes-no-celular{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+}

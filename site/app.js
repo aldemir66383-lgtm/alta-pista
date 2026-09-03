@@ -1766,7 +1766,22 @@ function tabelaInscritos(lista) {
           '<br><span class="contato">' + esc(i.participante_email) +
           (i.participante_telefone ? " · " + esc(i.participante_telefone) : "") + '</span>' +
           (respostas ? '<br><span class="respostas">' + esc(respostas) + '</span>' : "") +
-          (i.observacao ? '<br><span class="contato">“' + esc(i.observacao) + '”</span>' : "") + '</td>' +
+          (i.observacao ? '<br><span class="contato">“' + esc(i.observacao) + '”</span>' : "") +
+          /* No celular a tabela rola para o lado, e a coluna dos botões fica
+             fora da tela — quem confere pagamento pelo telefone não alcança o
+             "Marcar pago". Estas ações repetem as principais junto do nome e
+             só aparecem em tela estreita. Usam os mesmos data-status, então
+             não há lógica nova: é o mesmo caminho já testado. */
+          '<div class="acoes-no-celular">' +
+            (i.status !== "pago" && i.status !== "espera"
+              ? '<button class="btn pequeno" data-status="' + i.id + '|pago">✓ Marcar pago</button>' : "") +
+            (i.status === "espera"
+              ? '<button class="btn pequeno" data-status="' + i.id + '|pendente">Chamar da fila</button>' : "") +
+            (i.status === "cancelada"
+              ? '<button class="btn fantasma pequeno" data-status="' + i.id + '|pendente">Reabrir</button>' : "") +
+            (i.status === "pago"
+              ? '<span class="tag pago">pago</span>' : "") +
+          '</div>' + '</td>' +
         '<td>' + esc(ev.nome || "—") + '</td>' +
         '<td class="mono"><b style="font-size:1.15em">' +
           (i.numero == null ? "—"
