@@ -227,6 +227,10 @@ export async function gerarCobrancaGateway(inscricaoId) {
   // Site publicado sem a função (ambiente ainda não configurado): usa a reserva.
   if (resposta.status === 404) throw naoDelegar("Pagamento automático não publicado.");
 
+  // O evento recebe na chave dele: a cobrança é montada aqui, com aquela chave,
+  // e não pelo gateway — que depositaria na conta da plataforma.
+  if (resposta.status === 409) throw naoDelegar("Este evento recebe na chave própria.");
+
   const corpo = await resposta.json().catch(() => ({}));
   if (resposta.status >= 500 && /configurad/i.test(corpo.error || ""))
     throw naoDelegar(corpo.error);

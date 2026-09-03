@@ -42,12 +42,27 @@ export default universal(async request => {
     if (authError || !auth?.user) return json({ error: "Sua sessão expirou. Entre novamente." }, 401);
 
     const { data: inscricao, error: inscricaoError } = await sb.from("inscricoes")
-      .select("id,titular_id,status,valor_centavos,codigo")
+      .select("id,titular_id,status,valor_centavos,codigo,evento_id")
       .eq("id", inscricaoId).maybeSingle();
     if (inscricaoError || !inscricao || inscricao.titular_id !== auth.user.id)
       return json({ error: "Esta inscrição não é sua." }, 403);
     if (inscricao.status !== "pendente" || inscricao.valor_centavos <= 0)
       return json({ error: "Esta inscrição não tem pagamento pendente." }, 409);
+
+    /* O dinheiro tem que cair na conta de quem organiza o evento.
+     *
+     * A cobranca do Mercado Pago cai sempre na conta do token configurado
+     * aqui - a da plataforma. Isso serve para os eventos da propria casa, mas
+     * seria errado para o evento de outra pessoa: o termo de uso promete
+     * pagamento direto ao organizador, e a plataforma declara que nao toca no
+     * dinheiro. Entao, quando o evento tem chave Pix propria, esta funcao sai
+     * de cena e o site volta ao Pix estatico daquela chave.
+     */
+    const { data: evento } = await sb.from("eventos")
+      .select("chave_pix").eq("id", inscricao.evento_id).maybeSingle();
+    if (String(evento?.chave_pix || "").trim())
+      return json({ error: "Este evento recebe na chave Pix da própria organização.",
+        usar_chave_do_evento: true }, 409);
 
     const agora = new Date().toISOString();
 
