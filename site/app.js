@@ -618,7 +618,10 @@ async function desenhar(ctx) {
     (estado.organizacao || estado.identidade.nome_site || "Alta-Pista") + " · " + new Date().getFullYear();
   // Qualquer pessoa com conta pode publicar o próprio evento, então o Painel
   // deixou de ser exclusivo da administração: ele mostra a cada um o que é dele.
-  $("#menu button[data-ir='painel']").hidden = !estado.sessao;
+  // O Painel é só de quem recebeu acesso para administrar eventos. Não basta
+  // ter conta: quem se inscreve numa corrida não administra corrida nenhuma,
+  // e o botão nem aparece para essa pessoa.
+  $("#menu button[data-ir='painel']").hidden = !(estado.sessao && estado.organizador);
   desenharIdentidade();
   if (vista === "eventos") return telaEventos();
   if (vista === "evento") return telaEvento(ctx);
@@ -1702,6 +1705,38 @@ let edPeitoLogo = "", edPeitoFundo = "", edPeitoPronto = "";
 
 async function telaPainel() {
   if (!estado.sessao) { guardarDestino("painel"); return ir("entrar"); }
+
+  /* Entrou, mas esta conta não recebeu acesso de administração.
+     Isto precisa DIZER o que houve. Antes, quem estava nessa situação via a
+     tela falhar sem explicação e concluía que o site estava quebrado ou que
+     não tinha conseguido entrar — quando na verdade estava logado, só que com
+     um e-mail que ninguém liberou. Mostrar o e-mail da sessão é o essencial:
+     quase sempre o acesso foi dado a um endereço parecido, mas diferente. */
+  // Antes de negar, pergunta de novo. A resposta guardada pode ser um "não"
+  // que veio de uma falha de rede na hora de entrar — e negar o Painel a quem
+  // tem acesso, por causa de um tropeço momentâneo, é o pior erro possível
+  // aqui: a pessoa fica trancada do lado de fora sem ter feito nada errado.
+  if (!estado.organizador) {
+    carregando("#v-painel");
+    estado.organizador = await api.souOrganizador();
+  }
+
+  if (!estado.organizador) {
+    $("#v-painel").innerHTML =
+      '<div class="faixa"><div class="limite"><div class="painel">' +
+      '<span class="eyebrow">Painel da organização</span>' +
+      '<h2 style="margin-top:4px">Esta conta ainda não tem acesso</h2>' +
+      '<p style="color:var(--tinta-media);margin-top:10px">Você entrou como ' +
+      '<b>' + esc(estado.sessao.user.email) + '</b>, e este e-mail não está na ' +
+      'lista de quem administra eventos. Peça à organização para liberar ' +
+      '<b>exatamente este endereço</b> — se o acesso foi dado a um e-mail ' +
+      'parecido, ele não vale para esta conta.</p>' +
+      '<div class="acoes" style="margin-top:16px">' +
+      '<button class="btn" data-ir="eventos">Ver os eventos</button>' +
+      '<button class="btn clara" data-sair="1">Entrar com outro e-mail</button>' +
+      '</div></div></div></div>';
+    return;
+  }
   carregando("#v-painel");
   // Best-effort: devolve as vagas presas em pendências vencidas antes de
   // mostrar os números. Se a função ainda não foi instalada (supabase/0013),
@@ -1711,7 +1746,9 @@ async function telaPainel() {
     const [cfg, evs, ins] = await Promise.all([
       api.configuracao(), api.eventosDoPainel(), api.inscritosDoPainel()
     ]);
-    estado.painel = { config: cfg, eventos: evs, inscritos: ins };
+    // `cfg` vem vazio para quem não administra a plataforma, e isso é normal:
+    // as seções que o usam aparecem só para a administração.
+    estado.painel = { config: cfg || {}, eventos: evs, inscritos: ins };
   } catch (e) { return erroNa("#v-painel", e); }
 
   const { config, eventos, inscritos } = estado.painel;
@@ -1997,7 +2034,9 @@ function trazerParaAVista(caixa, seletorFoco) {
 }
 
 function ligarPainel() {
-  edLogo = estado.painel.config.logo_url || "";
+  // Sem configuração legível (quem organiza, mas não administra), segue vazio:
+  // o campo de logotipo pertence à seção da administração, que nem é desenhada.
+  edLogo = (estado.painel.config || {}).logo_url || "";
   const previaLogo = () => {
     const caixaLogo = $("#previa-logo");
     if (!caixaLogo) return;
@@ -2024,20 +2063,27 @@ function ligarPainel() {
     previaLogo();
   });
 
-  // os dois campos de cor andam juntos
+  // Os dois campos de cor andam juntos — quando existem. Eles ficam na seção
+  // "Identidade do site", que só é desenhada para a administração da
+  // plataforma. Sem esta conferência, quem organiza um evento e não administra
+  // a casa esbarrava aqui num erro, e o Painel parava de ser montado no meio:
+  // a tela até aparecia, mas nada respondia — nem "Novo evento", nem o
+  // formulário da senha, nem o extrato, porque tudo isso é ligado depois.
   const cor = $("#cor-acento"), corTexto = $("#cor-acento-texto");
   const valida = v => /^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/.test(v);
-  cor.addEventListener("input", () => {
-    corTexto.value = cor.value.toUpperCase();
-    document.documentElement.style.setProperty("--acento", cor.value);
-    document.documentElement.style.setProperty("--sobre-acento", tintaSobre(cor.value));
-  });
-  corTexto.addEventListener("input", () => {
-    if (!valida(corTexto.value)) return;
-    cor.value = corTexto.value;
-    document.documentElement.style.setProperty("--acento", corTexto.value);
-    document.documentElement.style.setProperty("--sobre-acento", tintaSobre(corTexto.value));
-  });
+  if (cor && corTexto) {
+    cor.addEventListener("input", () => {
+      corTexto.value = cor.value.toUpperCase();
+      document.documentElement.style.setProperty("--acento", cor.value);
+      document.documentElement.style.setProperty("--sobre-acento", tintaSobre(cor.value));
+    });
+    corTexto.addEventListener("input", () => {
+      if (!valida(corTexto.value)) return;
+      cor.value = corTexto.value;
+      document.documentElement.style.setProperty("--acento", corTexto.value);
+      document.documentElement.style.setProperty("--sobre-acento", tintaSobre(corTexto.value));
+    });
+  }
 
   const formIdentidade = $("#form-identidade");
   if (formIdentidade) formIdentidade.addEventListener("submit", async e => {

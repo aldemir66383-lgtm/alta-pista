@@ -168,13 +168,15 @@ export async function extratoTaxas() {
  * de erro: quem publica o próprio evento não precisa desse papel para nada.
  */
 export async function souOrganizador() {
-  try {
-    const { data, error } = await comPrazo(sb.rpc("eh_organizador"), 10000, "seu acesso");
-    if (error) return false;
-    return !!data;
-  } catch (e) {
-    return false;
+  // Duas tentativas: esta resposta decide se o Painel aparece, e um tropeço de
+  // rede não pode trancar do lado de fora quem tem acesso de verdade.
+  for (let tentativa = 1; tentativa <= 2; tentativa++) {
+    try {
+      const { data, error } = await comPrazo(sb.rpc("eh_organizador"), 10000, "seu acesso");
+      if (!error) return !!data;
+    } catch (e) { /* tenta mais uma vez */ }
   }
+  return false;
 }
 export async function meuPerfil() {
   const s = await sessaoAtual();
@@ -326,8 +328,26 @@ export async function cancelarInscricao(inscricaoId) {
 
 /* ---------------------------------------------------------------- painel -- */
 
+/**
+ * A configuração da casa: nome do site, cores, contato, chave Pix da
+ * plataforma. Por segurança, só a administração da plataforma pode lê-la.
+ *
+ * E é por isso que ela não pode ser exigida para abrir o Painel. Quando o site
+ * virou plataforma, o Painel deixou de ser exclusivo da administração: quem
+ * publica o próprio evento também entra nele. Mas esta era a PRIMEIRA coisa
+ * que o Painel carregava, com `.single()`, que trata "nenhuma linha" como
+ * erro. Para quem organiza um evento e não administra a plataforma, a leitura
+ * voltava zero linhas, virava erro, e o Painel inteiro morria antes de
+ * desenhar a primeira letra — a pessoa entrava e não via nada.
+ *
+ * Agora a ausência é resposta válida: devolve um objeto vazio. As seções que
+ * realmente dependem disto já aparecem só para a administração.
+ */
 export async function configuracao() {
-  return conferir(await sb.from("configuracao").select("*").eq("id", true).single());
+  const { data, error } = await sb.from("configuracao")
+    .select("*").eq("id", true).maybeSingle();
+  if (error || !data) return {};
+  return data;
 }
 export async function salvarConfiguracao(campos) {
   return conferir(await sb.from("configuracao").update(campos).eq("id", true).select().single());
