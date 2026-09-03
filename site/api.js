@@ -192,15 +192,23 @@ export async function minhasInscricoes() {
     .order("criado_em", { ascending: false })) || [];
 }
 export async function gerarCobrancaGateway(inscricaoId) {
-  const { data: sessao } = await sb.auth.getSession();
-  const token = sessao?.access_token;
-  if (!token) throw new Error("Entre na sua conta para gerar o Pix.");
-
   const naoDelegar = msg => {           // erro que autoriza cair na função do banco
     const e = new Error(msg);
     e.usarReserva = true;
     return e;
   };
+
+  /* getSession() devolve { data: { session } } — a sessão vem DENTRO de data.
+     Lendo data.access_token o token era sempre indefinido, e a cobrança
+     parava aqui com "Entre na sua conta para gerar o Pix" mesmo com a pessoa
+     logada. Como este erro não autorizava a reserva, ninguém conseguia gerar
+     Pix nenhum: nem pelo gateway, nem pela chave do evento. */
+  const { data } = await sb.auth.getSession();
+  const token = data && data.session && data.session.access_token;
+
+  // Sem token, quem resolve é a função do banco: ela confere a identidade por
+  // conta própria e dá a mensagem certa se realmente não houver sessão.
+  if (!token) throw naoDelegar("Sem sessão para falar com o gateway.");
 
   // Prazo obrigatório: sem ele, uma função que trava deixa a pessoa presa em
   // "Gerando a cobrança…" para sempre, e a reserva pelo banco nunca entra em
@@ -230,6 +238,10 @@ export async function gerarCobrancaGateway(inscricaoId) {
   // O evento recebe na chave dele: a cobrança é montada aqui, com aquela chave,
   // e não pelo gateway — que depositaria na conta da plataforma.
   if (resposta.status === 409) throw naoDelegar("Este evento recebe na chave própria.");
+
+  // O gateway não reconheceu a sessão: em vez de travar quem já está logado,
+  // cai na cobrança do banco, que valida a identidade do seu jeito.
+  if (resposta.status === 401) throw naoDelegar("O gateway não reconheceu a sessão.");
 
   const corpo = await resposta.json().catch(() => ({}));
   if (resposta.status >= 500 && /configurad/i.test(corpo.error || ""))
