@@ -1272,6 +1272,26 @@ async function mostrarPix(id) {
   const expiraEm = automatico && dados.expira_em ? new Date(dados.expira_em).getTime() : 0;
   const idContador = "pix-conta-" + id;
 
+  /* Só na confirmação manual: peça o código da inscrição na mensagem do Pix.
+     Sem ele, a organização casa cada pagamento com cada pessoa pelo nome de
+     quem pagou, o valor e o horário — e isso escorrega justamente nos casos
+     comuns: a mãe paga a inscrição do filho, duas pessoas pagam o mesmo valor
+     no mesmo minuto, alguém paga da conta de um terceiro. A maioria dos apps
+     de banco mostra essa mensagem no extrato de quem recebe, e aí a conferência
+     deixa de ser adivinhação. */
+  const inscricao = (estado.minhas || []).find(x => x.id === id);
+  const codigo = (inscricao && inscricao.codigo) || "";
+  const pedidoDeCodigo = (!automatico && codigo)
+    ? '<div class="aviso info" style="margin-top:4px"><span>✎</span><span>' +
+        'No app do banco, antes de confirmar, escreva <b class="mono">' + esc(codigo) + '</b> ' +
+        'no campo <b>mensagem</b> (alguns bancos chamam de descrição ou identificador). ' +
+        'É por ele que a organização reconhece o seu pagamento na hora de confirmar — ' +
+        'principalmente se quem pagar não for você.' +
+        '</span></div>' +
+      '<div><button class="btn fantasma pequeno" data-copiar="' + esc(codigo) + '">Copiar ' +
+        esc(codigo) + '</button></div>'
+    : "";
+
   const rodape = automatico
     ? '<p style="font-size:.82rem;color:var(--tinta-fraca)">Depois de pagar, <b>não precisa ' +
       'fazer mais nada</b>: a confirmação é automática e costuma levar menos de um minuto. ' +
@@ -1291,6 +1311,7 @@ async function mostrarPix(id) {
         'Abra o app do banco, escolha Pix › Pagar com QR Code e aponte a câmera — ou copie o código.</p></div>' +
         '<div class="copia mono">' + esc(payload) + '</div>' +
         '<div><button class="btn" data-copiar="' + esc(payload) + '">Copiar código Pix</button></div>' +
+        pedidoDeCodigo +
         rodape +
       '</div>' +
     '</div>';
@@ -1727,7 +1748,11 @@ function tabelaInscritos(lista) {
   if (!lista.length)
     return '<div class="vazio" style="margin-top:14px"><h3>Ninguém se inscreveu ainda</h3>' +
       '<p>Publique um evento e divulgue o link do site.</p></div>';
-  return '<div class="busca-tabela-caixa">' +
+  return '<p class="explica" style="margin-top:10px">Para conferir um pagamento: procure no ' +
+    'extrato o <b>valor</b> e o <b>código</b> que a pessoa escreveu na mensagem do Pix — ' +
+    'é o mesmo da coluna Código. Cole o código na busca abaixo e confirme direto na linha. ' +
+    'Eventos que recebem pelo Mercado Pago confirmam sozinhos e não precisam disto.</p>' +
+    '<div class="busca-tabela-caixa">' +
       '<input id="busca-inscritos" class="busca-tabela" placeholder="🔍 Filtrar por nome, número de peito, código, situação ou e-mail...">' +
     '</div>' +
     '<div class="rolagem" style="margin-top:6px"><table><thead><tr>' +
