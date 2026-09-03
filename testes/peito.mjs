@@ -115,7 +115,9 @@ teste("a página de impressão separa uma folha por página", () => {
   const p = paginaParaImprimir([folha({ ...base, numero: 1 }), folha({ ...base, numero: 2 })], "x");
   igual((p.match(/class="folha"/g) || []).length, 2, "número de folhas na página");
   confere(/page-break-after: always/.test(p), "faltou a quebra de página");
-  confere(/size: A4 landscape/.test(p), "faltou o tamanho do papel");
+  // A5 deitado: é o tamanho de peito usado em corrida de rua. A4 ficava
+  // maior que a barriga de muita gente.
+  confere(/size: A5 landscape/.test(p), "faltou o tamanho do papel");
 });
 
 teste("o SVG é bem formado: cada tag abre e fecha", () => {
