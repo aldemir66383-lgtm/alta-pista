@@ -1530,6 +1530,23 @@ function telaEntrar() {
             esc(estado.avisoEntrar) + '</span></div>'
           : "") +
       '</div></form>' +
+
+      /* Quem administra entra todo dia, de computadores diferentes. O link por
+         e-mail serve uma vez só, então para essa pessoa ele vira atrito. Aqui
+         ela usa a senha que definiu no Painel — quem nunca definiu nenhuma
+         continua entrando pelo link, sem ver diferença. */
+      '<details class="entrar-senha" style="margin-top:22px;border-top:1px solid var(--borda);padding-top:16px">' +
+        '<summary style="cursor:pointer;font-size:.92rem">Entrar com senha ' +
+        '<span class="dica">para quem organiza</span></summary>' +
+        '<form id="form-senha" style="margin-top:12px"><div class="campos">' +
+          '<label>E-mail<input name="email" type="email" required placeholder="voce@exemplo.com" autocomplete="email"></label>' +
+          '<label>Senha<input name="senha" type="password" required autocomplete="current-password"></label>' +
+        '</div>' +
+        '<div class="acoes"><button class="btn fantasma" type="submit">Entrar com senha</button></div>' +
+        '<div id="aviso-senha"></div></form>' +
+        '<p style="font-size:.83rem;color:var(--tinta-fraca);margin-top:8px">' +
+        'Ainda não tem senha? Entre uma vez pelo link do e-mail e defina a sua no Painel.</p>' +
+      '</details>' +
     '</div></div></div>';
 
   // Token do Turnstile: chega pelo callback quando a verificação passa, e cada
@@ -1554,6 +1571,21 @@ function telaEntrar() {
   }
 
   estado.avisoEntrar = null;   // já foi mostrado; não repete na próxima visita
+
+  aoEvento("#form-senha", "submit", async e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const botao = e.target.querySelector("button[type=submit]");
+    botao.disabled = true; botao.textContent = "Entrando…";
+    try {
+      await api.entrarComSenha(String(f.get("email")).trim(), String(f.get("senha")));
+      // A sessão chega pelo onAuthStateChange, que já redesenha a tela.
+      torrar("Bem-vindo de volta");
+    } catch (err) {
+      $("#aviso-senha").innerHTML = '<div class="erro">' + esc(mensagemDe(err)) + '</div>';
+      botao.disabled = false; botao.textContent = "Entrar com senha";
+    }
+  });
 
   $("#form-entrar").addEventListener("submit", async e => {
     e.preventDefault();
@@ -1744,6 +1776,21 @@ async function telaPainel() {
       (inscritos.length ? '<button class="btn fantasma" id="exportar">Baixar planilha</button>' : "") +
       '</div>' +
     '</div>' + tabelaInscritos(inscritos) + '</div>';
+
+  html += '<div class="painel"><span class="eyebrow">Sua conta</span>' +
+    '<h3 style="margin-top:4px">Senha de acesso</h3>' +
+    '<p style="color:var(--tinta-media);font-size:.9rem;margin-top:6px">' +
+      'Quem organiza entra todo dia, às vezes de outro computador — e o link do ' +
+      'e-mail serve uma vez só. Defina uma senha e você entra direto, de onde ' +
+      'estiver, quantas vezes precisar. O link por e-mail continua funcionando ' +
+      'do mesmo jeito; a senha é só um caminho a mais, seu e de mais ninguém.</p>' +
+    '<form id="form-minha-senha"><div class="campos duas">' +
+      '<label>Nova senha <span class="dica">no mínimo 8 caracteres</span>' +
+        '<input name="senha" type="password" minlength="8" required autocomplete="new-password"></label>' +
+      '<label>Repita a senha' +
+        '<input name="senha2" type="password" minlength="8" required autocomplete="new-password"></label>' +
+    '</div><div class="acoes"><button class="btn" type="submit">Salvar senha</button></div>' +
+    '<div id="aviso-minha-senha"></div></form></div>';
 
   html += '<div class="painel"><span class="eyebrow">Prestação de contas</span>' +
     '<h3 style="margin-top:4px">Taxa de serviço</h3>' +
@@ -1975,6 +2022,29 @@ function ligarPainel() {
   $("#novo-evento").addEventListener("click", () => editorEvento(null));
   const bx = $("#exportar");
   if (bx) bx.addEventListener("click", exportar);
+  aoEvento("#form-minha-senha", "submit", async e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const senha = String(f.get("senha") || "");
+    const repetida = String(f.get("senha2") || "");
+    const alvo = $("#aviso-minha-senha");
+    if (senha.length < 8)
+      return void (alvo.innerHTML = '<div class="erro">A senha precisa ter ao menos 8 caracteres.</div>');
+    if (senha !== repetida)
+      return void (alvo.innerHTML = '<div class="erro">As duas senhas não são iguais.</div>');
+    const botao = e.target.querySelector("button[type=submit]");
+    botao.disabled = true; botao.textContent = "Salvando…";
+    try {
+      await api.definirSenha(senha);
+      alvo.innerHTML = '<div class="aviso info" style="margin-top:12px"><span>✔</span><span>' +
+        'Senha salva. Agora você entra por e-mail e senha, de qualquer computador.</span></div>';
+      e.target.reset();
+    } catch (err) {
+      alvo.innerHTML = '<div class="erro">' + esc(mensagemDe(err)) + '</div>';
+    }
+    botao.disabled = false; botao.textContent = "Salvar senha";
+  });
+
   desenharExtrato();
   ligarEquipe();
 }

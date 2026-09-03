@@ -89,6 +89,24 @@ export async function entrarPorEmail(email, nome, captchaToken) {
     }
   }));
 }
+/**
+ * Entrar com senha, para quem trabalha no sistema todo dia.
+ *
+ * O link por e-mail continua sendo o caminho de quem se inscreve uma vez: nada
+ * para criar nem para lembrar. Mas ele serve uma vez só, e quem administra
+ * precisa entrar de qualquer computador, quantas vezes for — pedir link novo a
+ * cada acesso vira atrito diário. A senha é opcional e conviva com o link: quem
+ * não definir nenhuma continua entrando exatamente como antes.
+ */
+export async function entrarComSenha(email, senha) {
+  return conferir(await sb.auth.signInWithPassword({ email, password: senha }));
+}
+
+/** Define ou troca a própria senha. Só funciona com a sessão aberta. */
+export async function definirSenha(senha) {
+  return conferir(await sb.auth.updateUser({ password: senha }));
+}
+
 export async function sair() {
   await sb.auth.signOut();
 }
