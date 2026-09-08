@@ -167,6 +167,30 @@ export async function extratoTaxas() {
  * isso tem prazo, e por isso qualquer tropeço vira "não é organizador" em vez
  * de erro: quem publica o próprio evento não precisa desse papel para nada.
  */
+/**
+ * Guarda a prova de que os termos foram aceitos.
+ *
+ * Best-effort de propósito: se a tabela ainda não existe no banco, ou se a
+ * gravação falha por qualquer motivo, a inscrição segue normalmente. Registro
+ * é assunto nosso; perder uma inscrição paga por causa dele seria trocar um
+ * problema pequeno por um grande.
+ *
+ * @param tipo       "inscricao" (participante) ou "evento" (organizador)
+ * @param referencia o id da inscrição ou do evento aceito
+ * @param versao     a data da versão dos termos que estava na tela
+ */
+export async function registrarAceite(tipo, referencia, versao) {
+  try {
+    const user = await meuId();
+    if (!user) return false;
+    const { error } = await sb.from("aceites_termos")
+      .insert({ user_id: user, tipo, referencia: referencia || null, versao });
+    return !error;
+  } catch (e) {
+    return false;
+  }
+}
+
 export async function souOrganizador() {
   // Duas tentativas: esta resposta decide se o Painel aparece, e um tropeço de
   // rede não pode trancar do lado de fora quem tem acesso de verdade.

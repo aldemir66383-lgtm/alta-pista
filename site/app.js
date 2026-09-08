@@ -15,6 +15,15 @@ import { folhaComprovante, paginaDeComprovantes } from "./comprovante.js";
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+/**
+ * A versão dos termos que está no ar, pela data da última atualização.
+ *
+ * É gravada junto de cada aceite, para que daqui a um ano seja possível dizer
+ * não só que a pessoa aceitou, mas O QUE ela aceitou — o texto muda, o aceite
+ * dela não. Ao editar `site/termos.html`, mude a data lá e aqui.
+ */
+const TERMOS_VERSAO = "2026-09-08";
+
 const dinheiro = c => (c / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const MESES = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
 const MODALIDADES = ["Corrida de rua", "Corrida rústica", "Trail run", "Caminhada",
@@ -934,7 +943,25 @@ async function telaEvento(slug) {
     catch (e) { return erroNa("#v-evento", e); }
   }
   const ev = estado.evento;
-  if (!ev) return ir("eventos");
+
+  /* Endereço de evento que não existe mais — despublicado, apagado, ou link
+     digitado errado. Antes isso jogava a pessoa na lista sem dizer nada, e
+     quem tinha clicado num link de divulgação concluía que o site estava
+     quebrado. Um link de corrida circula por meses em grupo de WhatsApp;
+     dizer "esta prova saiu do ar" é o mínimo. */
+  if (!ev) {
+    $("#v-evento").innerHTML =
+      '<div class="faixa"><div class="limite"><div class="painel">' +
+      '<span class="eyebrow">Evento não encontrado</span>' +
+      '<h2 style="margin-top:4px">Esta prova não está mais no ar</h2>' +
+      '<p style="color:var(--tinta-media);margin-top:10px">O link pode ter sido ' +
+      'digitado errado, ou a organização pode ter tirado o evento do site. ' +
+      'Veja as provas com inscrições abertas.</p>' +
+      '<div class="acoes" style="margin-top:16px">' +
+      '<button class="btn" data-ir="eventos">Ver os eventos abertos</button>' +
+      '</div></div></div></div>';
+    return;
+  }
 
   const rest = vagasRestantes(ev);
   const lote = loteAtivo(ev);
@@ -1326,6 +1353,9 @@ async function telaInscricao() {
         respostas,
         observacao: String(f.get("observacao") || "").trim()
       });
+      // Sem await e sem tratamento: o registro do aceite não pode atrasar nem
+      // atrapalhar a confirmação de uma inscrição que já foi gravada.
+      api.registrarAceite("inscricao", ins.id, TERMOS_VERSAO);
       torrar(ins.status === "espera"
         ? "Você entrou na lista de espera — código " + ins.codigo
         : "Inscrição registrada — código " + ins.codigo);
@@ -2716,7 +2746,7 @@ function editorEvento(id) {
       return;
     }
     try {
-      await api.salvarEvento({
+      const salvo = await api.salvarEvento({
         id: edEventoId || undefined,
         slug: ev ? ev.slug : gerarSlug(nome),
         nome,
@@ -2750,6 +2780,8 @@ function editorEvento(id) {
         lotes,
         perguntas: edPerguntas.filter(p => String(p.rotulo || "").trim())
       });
+      // Só na criação, que é quando a declaração da seção 2 dos termos é feita.
+      if (!ev && salvo && salvo.id) api.registrarAceite("evento", salvo.id, TERMOS_VERSAO);
       torrar(ev ? "Evento atualizado" : "Evento criado como rascunho");
       await telaPainel();
     } catch (err) {

@@ -522,8 +522,15 @@ td .contato{color:var(--tinta-fraca);font-size:.81rem}
   align-items:flex-start!important;
   background:var(--superficie-2);border:1px solid var(--borda);
   border-radius:var(--r);padding:12px 14px;font-size:.88rem;line-height:1.5;
+  /* As outras caixinhas do site são frases curtas de uma linha, e por isso a
+     regra geral proíbe quebra. Esta é um parágrafo: sem liberar a quebra, o
+     texto saía reto para fora da tela no celular e a pessoa lia metade do que
+     estava aceitando. */
+  white-space:normal;
 }
 .aceite-termos input{margin-top:3px;flex:none}
+/* Sem isto o texto não encolhe abaixo do tamanho natural dele e vaza a caixa. */
+.aceite-termos span{min-width:0}
 /* O link herda a cor do texto, como o resto do site, e se distingue pelo
    sublinhado — cor sozinha não é sinal acessível. */
 .aceite-termos a{color:inherit;text-decoration:underline;text-underline-offset:2px}
