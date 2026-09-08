@@ -131,6 +131,33 @@ await teste("ler os perfis das pessoas", async () => {
   confere(Array.isArray(j) && j.length === 0, "VAZAMENTO: perfis foram lidos sem conta");
 });
 
+await teste("ler os aceites dos termos de outras pessoas", async () => {
+  // Esta tabela é prova de consentimento: diz quem aceitou os termos e quando.
+  // Ler isso sem conta seria saber quem se inscreveu em quê — e é exatamente
+  // o tipo de tabela nova que nasce sem ninguém lembrar de fechar.
+  const r = await rest("aceites_termos?select=user_id,tipo,referencia,aceito_em");
+  if (r.ok) {
+    const j = await r.json();
+    confere(Array.isArray(j) && j.length === 0,
+      "VAZAMENTO: os aceites dos termos foram lidos sem conta");
+  } else {
+    confere(r.status === 401 || r.status === 403 || r.status === 400,
+      "esperava recusa, veio " + r.status);
+  }
+});
+
+await teste("forjar o aceite dos termos no nome de outra pessoa", async () => {
+  // Um registro de consentimento que qualquer um pode escrever não prova nada.
+  const r = await rest("aceites_termos", {
+    method: "POST",
+    body: JSON.stringify({
+      user_id: "00000000-0000-0000-0000-000000000000",
+      tipo: "inscricao", versao: "forjado"
+    })
+  });
+  confere(!r.ok, "BRECHA GRAVE: dá para forjar aceite no nome de outra pessoa");
+});
+
 await teste("descobrir quem é organizador", async () => {
   const r = await rest("organizadores?select=user_id");
   const j = await r.json();
