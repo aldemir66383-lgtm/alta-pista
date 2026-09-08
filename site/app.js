@@ -1251,6 +1251,20 @@ async function telaInscricao() {
           ? '<div class="linha-dados" style="margin-top:16px;border-top:1px solid var(--borda);padding-top:14px">' +
               '<dt>Total a pagar</dt><dd class="mono">' + valorComTaxa(precoAtual(ev)) + '</dd></div>'
           : "") +
+        /* Aceite dos termos, ANTES de pagar.
+           Não é formalidade: é aqui que a pessoa concorda com a taxa de
+           serviço e com o uso da imagem dela nas fotos do evento. Um termo
+           que só existe no rodapé não foi apresentado a ninguém — e é
+           justamente o uso de imagem, e a inscrição de menores feita pelo
+           responsável, que precisam de aceite consciente. O link abre em
+           outra aba de propósito: ler os termos não pode custar o que a
+           pessoa já preencheu. */
+        '<label class="caixinha aceite-termos" style="margin-top:18px">' +
+          '<input type="checkbox" name="aceite" required>' +
+          '<span>Li e aceito os <a href="/termos.html" target="_blank" rel="noopener">' +
+          'termos de uso</a>, incluindo a taxa de serviço e o uso de imagem ' +
+          'para divulgação do evento.</span>' +
+        '</label>' +
         '<div class="acoes">' +
           '<button class="btn" type="submit" id="botao-enviar">' +
             (lotado ? "Entrar na lista de espera" : precoAtual(ev) > 0 ? "Gerar meu Pix" : "Confirmar inscrição") +
@@ -1271,6 +1285,19 @@ async function telaInscricao() {
         '<div id="erro-inscricao"></div>' +
       '</form>' +
     '</div></div></div>';
+
+  /* Sem isto, quem esquece de marcar o aceite vê só um balãozinho do
+     navegador — que numa ficha longa costuma ficar fora da tela, e a pessoa
+     conclui que o botão parou de funcionar. */
+  $("#form-inscricao").addEventListener("invalid", evento => {
+    const campo = evento.target;
+    const mensagem = campo.name === "aceite"
+      ? "Para continuar, marque que você leu e aceita os termos de uso."
+      : "Confira o campo destacado: " + (campo.validationMessage || "valor inválido");
+    $("#erro-inscricao").innerHTML = '<div class="erro">' + esc(mensagem) + '</div>';
+    campo.scrollIntoView({ behavior: "smooth", block: "center" });
+    try { campo.focus({ preventScroll: true }); } catch (e) { /* campo escondido */ }
+  }, true);   // captura: "invalid" não sobe pela árvore
 
   $("#form-inscricao").addEventListener("submit", async envio => {
     envio.preventDefault();
@@ -2530,6 +2557,20 @@ function editorEvento(id) {
         '</div>' +
       '</div>' +
 
+      /* Só na CRIAÇÃO. Quem publica um evento assume, pelos termos, que o
+         evento é real, que os dados estão certos, que a chave Pix é dele e
+         que tem as autorizações que a prova exigir. Isso precisa ser aceito
+         uma vez, com o texto à mão — não a cada correção de horário, o que
+         só ensinaria a marcar sem ler. */
+      (ev ? "" :
+        '<label class="caixinha aceite-termos" style="margin-top:18px">' +
+          '<input type="checkbox" name="aceite" required>' +
+          '<span>Li e aceito os <a href="/termos.html" target="_blank" rel="noopener">' +
+          'termos de uso</a>. Declaro que o evento é real, que os dados são ' +
+          'verdadeiros, que a chave Pix é minha ou da entidade que represento e ' +
+          'que tenho as autorizações que o evento exigir.</span>' +
+        '</label>') +
+
       '<div class="acoes">' +
         '<button class="btn" type="submit">' + (ev ? "Salvar alterações" : "Criar evento") + '</button>' +
         '<button class="btn fantasma" type="button" id="cancelar-evento">Cancelar</button>' +
@@ -2723,10 +2764,18 @@ function editorEvento(id) {
      português, junto do botão, e a tela desce até o campo. */
   aoEvento("#form-evento", "invalid", evento => {
     const campo = evento.target;
+    if (campo.name === "aceite") {
+      $("#erro-evento").innerHTML = '<div class="erro">' +
+        'Para criar o evento, marque que você leu e aceita os termos de uso.</div>';
+      campo.scrollIntoView({ behavior: "smooth", block: "center" });
+      try { campo.focus({ preventScroll: true }); } catch (e) { /* escondido */ }
+      return;
+    }
     const rotulo = campo.closest("label");
-    const nome = rotulo
-      ? (rotulo.childNodes[0].textContent || "").trim().replace(/\s+/g, " ")
-      : (campo.name || "este campo");
+    // Numa caixinha de marcar o texto vem depois do campo, então o primeiro
+    // nó do rótulo é o próprio input e o nome sairia vazio.
+    const doRotulo = rotulo ? (rotulo.childNodes[0].textContent || "").trim().replace(/\s+/g, " ") : "";
+    const nome = doRotulo || campo.name || "este campo";
     $("#erro-evento").innerHTML = '<div class="erro">Confira <b>' + esc(nome) + '</b>: ' +
       esc(campo.validationMessage || "valor inválido") + '</div>';
     campo.scrollIntoView({ behavior: "smooth", block: "center" });
