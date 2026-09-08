@@ -607,10 +607,22 @@ const estado = {
 };
 let vista = "eventos";
 
+/**
+ * O assunto da tela atual — o slug do evento, quando a tela é a de um evento.
+ *
+ * Guardar isto não é luxo. Várias coisas mandam a tela se redesenhar sem saber
+ * qual evento está aberto: a sessão que muda, o tema que troca. Antes, esse
+ * redesenho chamava a tela do evento SEM o slug, ela não encontrava evento
+ * nenhum e jogava a pessoa para a lista — que é o endereço compartilhado
+ * abrindo na página inicial em vez de abrir na prova.
+ */
+let contexto = null;
+
 /* =============================================================== rotas === */
 
 function ir(nome, ctx, atualizarHist = true) {
   vista = nome;
+  contexto = ctx == null ? null : ctx;
   if (nome !== "eventos") clearInterval(carrosselRelogio); // não roda escondido
   if (nome !== "minhas") { clearInterval(minhasRelogio); clearInterval(pixValidadeRelogio); }
   document.querySelectorAll(".secao").forEach(s => s.classList.remove("ativa"));
@@ -652,7 +664,7 @@ function destinoDoEndereco() {
   return null;
 }
 
-async function desenhar(ctx) {
+async function desenhar(ctx = contexto) {
   $("#rodape-assinatura").textContent =
     (estado.organizacao || estado.identidade.nome_site || "Alta-Pista") + " · " + new Date().getFullYear();
   // Qualquer pessoa com conta pode publicar o próprio evento, então o Painel
@@ -3128,6 +3140,22 @@ function avisoDeLinkDeAcesso() {
     vista = "entrar";
   }
 
+  /* A PRIMEIRA tela é decidida pelo endereço, e só por ele. Quem abriu um link
+     de evento tem que cair naquele evento.
+
+     Por isso o aviso de sessão só é ligado DEPOIS que essa primeira tela
+     terminou de abrir. O aviso chega assim que a gente se inscreve nele, e ele
+     manda redesenhar; se chegasse no meio da abertura do evento — que espera o
+     banco responder — o redesenho passava na frente e levava para a lista.
+     Era esse o link de evento que abria na página inicial. */
+  await (async () => {
+    // quem já chega logado (voltou do link do e-mail) volta para onde parou
+    if (estado.sessao && pegarDestino()) return levarAoDestino();
+    const destinoUrl = destinoDoEndereco();
+    if (destinoUrl) return ir(destinoUrl.vista, destinoUrl.slug);
+    return ir("eventos");
+  })();
+
   api.aoMudarSessao(async sessao => {
     const entrouAgora = !!sessao && !estado.sessao;
     estado.sessao = sessao;
@@ -3139,12 +3167,6 @@ function avisoDeLinkDeAcesso() {
     }
     desenhar();
   });
-
-  // quem já chega logado (voltou do link do e-mail) volta para onde parou
-  if (estado.sessao && pegarDestino()) return levarAoDestino();
-  const destinoUrl = destinoDoEndereco();
-  if (destinoUrl) return ir(destinoUrl.vista, destinoUrl.slug);
-  await ir("eventos");
 })();
 
 async function levarAoDestino() {
