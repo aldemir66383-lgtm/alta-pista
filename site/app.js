@@ -140,9 +140,48 @@ function gerarICS(ev) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/**
+ * O endereço próprio de um evento.
+ *
+ * Cada evento tem um link direto e permanente. É ele que vai para o grupo do
+ * WhatsApp, para a legenda do Instagram e para o cartaz impresso — quem abre
+ * cai na ficha daquela prova, não na lista com todas.
+ */
+function linkDoEvento(ev) {
+  return `${window.location.origin}/#evento=${encodeURIComponent(ev.slug)}`;
+}
+
+/**
+ * Copia um texto para a área de transferência.
+ *
+ * A forma moderna (`navigator.clipboard`) é recusada em algumas situações —
+ * página aberta sem cadeado, navegador antigo, permissão negada. Nesses casos
+ * cai no jeito antigo, com um campo escondido. E se nem isso funcionar, avisa
+ * em vez de fingir que copiou: o pior resultado possível é a pessoa colar e
+ * descobrir que veio vazio.
+ */
+async function copiarTexto(texto, aviso) {
+  try {
+    await navigator.clipboard.writeText(texto);
+    torrar(aviso);
+    return true;
+  } catch (err) {
+    const campo = document.createElement("textarea");
+    campo.value = texto;
+    campo.style.cssText = "position:fixed;left:-9999px;top:0";
+    document.body.appendChild(campo);
+    campo.select();
+    let deu = false;
+    try { deu = document.execCommand("copy"); } catch (e) { deu = false; }
+    campo.remove();
+    torrar(deu ? aviso : "Não consegui copiar. Selecione o link e copie à mão.");
+    return deu;
+  }
+}
+
 /* Compartilhamento direto no WhatsApp ou no menu nativo */
 async function compartilharEvento(ev) {
-  const url = `${window.location.origin}/#evento=${encodeURIComponent(ev.slug)}`;
+  const url = linkDoEvento(ev);
   const texto = `🏃‍♂️ Participe da prova "${ev.nome}"!\n📅 Data: ${dataLonga(ev.data)}${ev.hora ? " às " + hora(ev.hora) : ""}\n📍 Local: ${ev.local || "A definir"} ${cidadeUF(ev) ? "— " + cidadeUF(ev) : ""}\n🔗 Inscreva-se: ${url}`;
 
   if (navigator.share) {
@@ -863,6 +902,14 @@ function cartao(ev) {
         (rest != null ? '<span class="vagas" style="margin-left:auto">' +
           (rest === 0 ? "Sem vagas" : rest === 1 ? "1 vaga" : rest + " vagas") + '</span>' : "") +
       '</div>' + acao +
+      /* Divulgar não pode exigir abrir o evento primeiro. Quem administra
+         manda link de prova o dia inteiro, e cada clique a mais nesse caminho
+         é atrito. Os dois botões ficam discretos, abaixo da ação principal:
+         quem vem se inscrever não se confunde, quem vem divulgar acha na hora. */
+      '<div class="cartao-divulgar">' +
+        '<button class="btn fantasma pequeno" data-copiar-link="' + esc(ev.slug) + '">🔗 Copiar link</button>' +
+        '<button class="btn fantasma pequeno" data-compartilhar="' + esc(ev.slug) + '">📤 WhatsApp</button>' +
+      '</div>' +
     '</div></article>';
 }
 
@@ -906,9 +953,14 @@ async function telaEvento(slug) {
       (contagem ? '<span class="badge-contagem ' + contagem.classe + '" style="margin-bottom:8px">' + contagem.texto + '</span>' : "") +
       '<span class="eyebrow">' + (lotado && !fechado ? "Lista de espera" : "Inscrições") + '</span>' +
       '<h2 style="margin-top:4px">' + esc(ev.nome) + '</h2>' +
-      (ev.descricao ? '<p style="margin-top:10px;color:var(--tinta-media)">' + esc(ev.descricao) + '</p>' : "") +
+      // A descrição costuma ser uma lista do que está incluso — camisa,
+      // medalha, hidratação. Passada por este leitor, cada linha iniciada por
+      // "- " vira item de lista de verdade, em vez de virar um parágrafo só
+      // com traços no meio, que é como saía antes.
+      (ev.descricao ? '<div class="descricao-evento">' + renderEdital(ev.descricao) + '</div>' : "") +
       '<div class="linha-acoes-evento">' +
         '<button class="btn fantasma pequeno" data-compartilhar="' + esc(ev.slug) + '">📤 Compartilhar no WhatsApp</button>' +
+        '<button class="btn fantasma pequeno" data-copiar-link="' + esc(ev.slug) + '">🔗 Copiar link</button>' +
         '<button class="btn fantasma pequeno" data-calendario="' + esc(ev.slug) + '">📅 Salvar na agenda</button>' +
         '<a class="btn fantasma pequeno" href="' + esc(linkMaps) + '" target="_blank" rel="noopener noreferrer">📍 Como chegar (GPS)</a>' +
       '</div>' +
@@ -2862,7 +2914,7 @@ document.addEventListener("click", async e => {
   if (e.target.closest("#botao-tema")) return alternarTema();
 
   const alvo = e.target.closest("[data-ir],[data-abrir],[data-inscrever],[data-voltar-evento]," +
-    "[data-copiar],[data-pix],[data-cancelar],[data-sair],[data-editar],[data-publicar],[data-comprovante]," +
+    "[data-copiar],[data-copiar-link],[data-pix],[data-cancelar],[data-sair],[data-editar],[data-publicar],[data-comprovante]," +
     "[data-abrir-fechar],[data-apagar],[data-apagar-inscricao],[data-status],[data-imprimir],[data-recarregar],"
     + "[data-peito],[data-peitos],[data-kit],[data-compartilhar],[data-calendario],[data-certificado]," +
     "[data-resultado],[data-resultados-de],[data-limpar-filtro],[data-tirar-acesso]");
@@ -2881,14 +2933,13 @@ document.addEventListener("click", async e => {
   if (d.sair) { await api.sair(); estado.sessao = null; estado.organizador = false; return ir("eventos"); }
 
   if (d.copiar) {
-    try { await navigator.clipboard.writeText(d.copiar); torrar("Código Pix copiado"); }
-    catch (err) {
-      const t = document.createElement("textarea");
-      t.value = d.copiar; document.body.appendChild(t); t.select();
-      try { document.execCommand("copy"); torrar("Código Pix copiado"); }
-      catch (e2) { torrar("Selecione o código e copie manualmente"); }
-      t.remove();
-    }
+    await copiarTexto(d.copiar, "Código Pix copiado");
+    return;
+  }
+  if (d.copiarLink) {
+    const ev = eventoPorSlug(d.copiarLink);
+    if (!ev) return;
+    await copiarTexto(linkDoEvento(ev), "Link do evento copiado");
     return;
   }
   if (d.pix) return mostrarPix(d.pix);

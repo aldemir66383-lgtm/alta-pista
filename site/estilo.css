@@ -207,6 +207,25 @@ nav button[aria-current="page"]{color:var(--acento);border-bottom-color:var(--ac
 /* ações extras do evento */
 .linha-acoes-evento{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
 
+/* A descrição do evento: normalmente a lista do que está incluso na inscrição
+   (camisa, medalha, hidratação). Vem do mesmo leitor de texto do edital, então
+   precisa das mesmas margens contidas — sem isto, listas e parágrafos herdam
+   espaçamento de artigo e a ficha estica. */
+.descricao-evento{margin-top:10px;color:var(--tinta-media);font-size:.95rem}
+.descricao-evento p{margin:0 0 8px}
+.descricao-evento h3{font-size:.95rem;margin:14px 0 6px;color:var(--tinta)}
+.descricao-evento ul{margin:0 0 10px;padding-left:20px;display:grid;gap:4px}
+.descricao-evento li{padding-left:2px}
+.descricao-evento > :last-child{margin-bottom:0}
+
+/* Divulgação no cartão da lista: separada da ação principal por uma linha,
+   para não competir com "Inscreva-se". */
+.cartao-divulgar{
+  display:flex;gap:8px;flex-wrap:wrap;
+  margin-top:2px;padding-top:12px;border-top:1px solid var(--borda);
+}
+.cartao-divulgar .btn{flex:1;min-width:0;font-size:.72rem;padding:7px 8px}
+
 /* busca na tabela de inscritos do painel */
 .busca-tabela-caixa{margin:14px 0 16px}
 .busca-tabela{
