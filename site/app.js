@@ -1430,7 +1430,12 @@ async function telaMinhas() {
         (i.eh_titular ? "" : ' <span class="tag espera" style="margin-left:6px">dependente</span>') + '</h3></div>' +
         '<span class="tag ' + classeStatus(i.status) + '">' + rotuloStatus(i.status) + '</span>' +
       '</div>' +
-      (i.numero != null
+      /* `peito_ativo` também manda aqui. Faltava esta conferência: quando a
+         organização desmarcava "este evento usa número de peito", o Painel
+         parava de oferecer a folha, mas o cartão do participante continuava
+         oferecendo — e imprimia o modelo genérico do site, que é justamente o
+         que a organização tinha acabado de dispensar. */
+      (i.numero != null && (i.eventos || {}).peito_ativo !== false
         ? '<div class="mini-peito-cartao">' +
             '<div><span style="font-size:.7rem;text-transform:uppercase;color:var(--tinta-fraca);display:block">Número Oficial</span>' +
             '<span class="num">' + formatarNumero(i.numero, (i.eventos || {}).numero_digitos) + '</span></div>' +
