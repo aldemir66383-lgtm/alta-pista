@@ -22,7 +22,7 @@ const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c =>
  * não só que a pessoa aceitou, mas O QUE ela aceitou — o texto muda, o aceite
  * dela não. Ao editar `site/termos.html`, mude a data lá e aqui.
  */
-const TERMOS_VERSAO = "2026-09-09";
+const TERMOS_VERSAO = "2026-09-09.2";
 
 const dinheiro = c => (c / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const MESES = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
@@ -1433,6 +1433,17 @@ async function telaMinhas() {
         (ev.data ? '<div class="linha-dados"><dt>Quando</dt><dd>' + esc(dataLonga(ev.data)) +
           (ev.hora ? " · " + hora(ev.hora) : "") + '</dd></div>' : "") +
         (ev.local ? '<div class="linha-dados"><dt>Onde</dt><dd>' + esc(ev.local) + '</dd></div>' : "") +
+        /* O prazo é a informação mais urgente de um cartão pendente: é a única
+           que muda sozinha e contra a pessoa. Fica no meio dos dados, e não
+           escondida atrás do botão do Pix. */
+        (i.status === "pendente" && i.valor_centavos > 0
+          ? '<div class="linha-dados"><dt>Pagar até</dt><dd>' +
+              (temAnexo(i)
+                ? '<b>Em conferência</b> — comprovante anexado, o prazo não corre mais'
+                : '<b>' + esc(dataHoraCurta(prazoDePagamento(i))) + '</b>' +
+                  ' <span class="contato">(24 h após a inscrição)</span>') +
+            '</dd></div>'
+          : "") +
       '</dl>' +
       '<div id="pix-' + i.id + '"></div>' +
       '<div id="anexo-' + i.id + '"></div>' +
@@ -1488,6 +1499,12 @@ function vigiarPendentes() {
     if (estado.minhas.some(i => i.status === "pago")) torrar("Pagamento confirmado!");
     telaMinhas();
   }, 20000);
+}
+
+/** Quando a inscrição pendente vira cancelada sozinha: 24 h depois de feita. */
+const HORAS_PARA_PAGAR = 24;
+function prazoDePagamento(i) {
+  return new Date(new Date(i.criado_em).getTime() + HORAS_PARA_PAGAR * 3600000);
 }
 
 /** true se a inscrição já tem pelo menos um comprovante anexado. */
@@ -1560,6 +1577,15 @@ async function mostrarPix(id) {
         esc(codigo) + '</button></div>'
     : "";
 
+  /* O prazo tem de aparecer onde a pessoa decide pagar, e não só nos termos.
+     Um prazo que só existe no documento cancela inscrição de gente que nunca
+     soube que ele existia. */
+  const prazo = '<div class="aviso" style="margin-top:4px"><span>⏱</span><span>' +
+    'Esta inscrição vale por <b>24 horas</b>. Se o pagamento não for feito até lá, ' +
+    'ela é <b>cancelada automaticamente</b> e a vaga volta para a fila. ' +
+    'Depois de pagar, <b>anexe o comprovante aqui embaixo</b>: com ele anexado, ' +
+    'a inscrição sai do prazo automático e espera a conferência.</span></div>';
+
   const rodape = automatico
     ? '<p style="font-size:.82rem;color:var(--tinta-fraca)">Depois de pagar, <b>não precisa ' +
       'fazer mais nada</b>: a confirmação é automática e costuma levar menos de um minuto. ' +
@@ -1580,6 +1606,7 @@ async function mostrarPix(id) {
         '<div class="copia mono">' + esc(payload) + '</div>' +
         '<div><button class="btn" data-copiar="' + esc(payload) + '">Copiar código Pix</button></div>' +
         pedidoDeCodigo +
+        prazo +
         rodape +
       '</div>' +
     '</div>';
@@ -2176,7 +2203,7 @@ async function telaPainel() {
         ? '<button class="btn fantasma" data-peitos="1">Imprimir números de peito</button>' : "") +
       (inscritos.length ? '<button class="btn fantasma" id="exportar">Baixar planilha</button>' : "") +
       '</div>' +
-    '</div>' + tabelaInscritos(inscritos) + '</div>';
+    '</div>' + cobrarComprovante(inscritos) + tabelaInscritos(inscritos) + '</div>';
 
   html += '<div class="painel"><span class="eyebrow">Sua conta</span>' +
     '<h3 style="margin-top:4px">Senha de acesso</h3>' +
@@ -2255,6 +2282,77 @@ function linhaEvento(ev) {
         (ev.inscricoes_abertas ? "Encerrar inscrições" : "Reabrir") + '</button>' +
       '<button class="btn perigo pequeno" data-apagar="' + ev.id + '">Apagar</button>' +
     '</div></div>';
+}
+
+/**
+ * Quem está pendente e não anexou comprovante — e como falar com essas pessoas.
+ *
+ * O site não manda e-mail sozinho: mandar e-mail em nome de alguém exige um
+ * serviço de envio contratado, com chave própria, e nada disso existe aqui.
+ * O que existe é o endereço e o telefone de cada um. Então o Painel monta a
+ * mensagem pronta e abre o programa de e-mail com todos em cópia oculta —
+ * oculta de propósito: uma lista de inscritos em "Para" entrega o e-mail de
+ * cada participante a todos os outros.
+ */
+const BRANCO = String.fromCharCode(10, 10);   // linha em branco na mensagem
+function textoDaCobranca() {
+  return "Olá! Sua inscrição ainda está como PENDENTE no site." + BRANCO +
+    "Se você já pagou, entre em alta-pista.vercel.app, vá em MINHAS INSCRIÇÕES " +
+    "e anexe o comprovante do Pix — é rápido e é por ele que confirmamos." + BRANCO +
+    "Se ainda não pagou, o Pix está lá na mesma tela. Atenção: a inscrição " +
+    "não paga é cancelada automaticamente 24 horas depois de feita, e a vaga " +
+    "volta para a fila." + BRANCO +
+    "Qualquer dúvida, é só responder por aqui.";
+}
+
+function cobrarComprovante(lista) {
+  const alvo = (lista || []).filter(
+    i => i.status === "pendente" && i.valor_centavos > 0 && !temAnexo(i));
+  if (!alvo.length) return "";
+
+  const emails = [...new Set(alvo.map(i => String(i.participante_email || "").trim())
+    .filter(e => e.includes("@")))];
+  const semEmail = alvo.length - alvo.filter(
+    i => String(i.participante_email || "").includes("@")).length;
+
+  const linhas = alvo.map(i => {
+    const fone = String(i.participante_telefone || "").replace(/\D/g, "");
+    const zap = fone.length >= 10
+      ? '<a class="btn fantasma pequeno" target="_blank" rel="noopener" href="https://wa.me/55' +
+        esc(fone.length > 11 ? fone.slice(-11) : fone) +
+        '?text=' + encodeURIComponent(textoDaCobranca()) + '">WhatsApp</a>'
+      : '<span class="contato">sem telefone</span>';
+    return '<div class="comprovante-linha">' +
+      '<span><b>' + esc(i.participante_nome) + '</b><br>' +
+      '<span class="comprovante-quando">' + esc((i.eventos || {}).nome || "") +
+      ' · ' + esc(i.codigo) + ' · vence ' + esc(dataHoraCurta(prazoDePagamento(i))) +
+      '</span></span>' + zap + '</div>';
+  }).join("");
+
+  const assunto = "Sua inscrição está pendente — anexe o comprovante";
+  const mailto = "mailto:?bcc=" + encodeURIComponent(emails.join(",")) +
+    "&subject=" + encodeURIComponent(assunto) +
+    "&body=" + encodeURIComponent(textoDaCobranca());
+
+  return '<div class="painel" style="margin-top:18px">' +
+    '<span class="eyebrow">Cobrança</span>' +
+    '<h3 style="margin-top:4px">' + alvo.length +
+      (alvo.length === 1 ? ' inscrição pendente sem comprovante' : ' inscrições pendentes sem comprovante') +
+    '</h3>' +
+    '<p class="explica" style="margin-top:4px">Estas são as pessoas que ainda não pagaram ' +
+      '— ou pagaram e não anexaram o comprovante. Todas serão canceladas sozinhas ' +
+      '24 horas depois de terem se inscrito, a menos que anexem. Avise antes disso.</p>' +
+    '<div class="acoes" style="margin-top:12px">' +
+      (emails.length
+        ? '<a class="btn" href="' + esc(mailto) + '">✉️ Abrir e-mail para os ' + emails.length + '</a>' +
+          '<button class="btn fantasma" data-copiar-lista="' + esc(emails.join(", ")) + '">Copiar os e-mails</button>'
+        : '') +
+      '<button class="btn fantasma" data-copiar-lista="' + esc(textoDaCobranca()) + '">Copiar a mensagem</button>' +
+    '</div>' +
+    (semEmail ? '<p class="explica" style="margin-top:8px">' + semEmail +
+      ' pessoa(s) não deixaram e-mail — para essas, use o WhatsApp na lista abaixo.</p>' : "") +
+    '<div class="comprovantes-enviados" style="margin-top:12px">' + linhas + '</div>' +
+    '</div>';
 }
 
 function tabelaInscritos(lista) {
@@ -3257,7 +3355,7 @@ document.addEventListener("click", async e => {
 
   const alvo = e.target.closest("[data-ir],[data-abrir],[data-inscrever],[data-voltar-evento]," +
     "[data-copiar],[data-copiar-link],[data-pix],[data-cancelar],[data-sair],[data-editar],[data-publicar],[data-comprovante]," +
-    "[data-ver-comprovante],[data-tirar-comprovante],[data-anexar]," +
+    "[data-ver-comprovante],[data-tirar-comprovante],[data-anexar],[data-copiar-lista]," +
     "[data-abrir-fechar],[data-apagar],[data-apagar-inscricao],[data-status],[data-imprimir],[data-recarregar],"
     + "[data-peito],[data-peitos],[data-kit],[data-compartilhar],[data-calendario],[data-certificado]," +
     "[data-resultado],[data-resultados-de],[data-limpar-filtro],[data-tirar-acesso]");
@@ -3291,6 +3389,10 @@ document.addEventListener("click", async e => {
     await pintarAnexo(d.anexar);
     const caixa = $("#anexo-" + d.anexar);
     if (caixa) caixa.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+  if (d.copiarLista) {
+    await copiarTexto(d.copiarLista, "Copiado");
     return;
   }
   if (d.verComprovante) return abrirComprovante(d.verComprovante);
