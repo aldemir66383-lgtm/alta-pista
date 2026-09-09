@@ -1,0 +1,212 @@
+<title>Ligar o comprovante de pagamento</title>
+<style>
+:root{--bg:#f7f6f3;--fg:#23211d;--muted:#7c7768;--card:#fff;--line:#e4e1d9;--accent:#2f6fd6;--code:#f0ede6;--ok:#1e7a3d}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#1b1a18;--fg:#e9e6df;--muted:#9a9587;--card:#242320;--line:#38352f;--accent:#7fa8ee;--code:#2c2a25;--ok:#7fc99a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:820px;margin:0 auto;padding:26px 18px 80px}
+h1{font-size:22px;margin:0 0 6px}
+p{margin:8px 0}
+.muted{color:var(--muted)}
+ol{padding-left:22px}
+li{margin:7px 0}
+button{font:600 16px/1 inherit;padding:14px 22px;border-radius:10px;border:1px solid var(--accent);
+background:var(--accent);color:#fff;cursor:pointer;margin:14px 0}
+button:active{transform:translateY(1px)}
+#msg{display:inline-block;margin-left:12px;color:var(--ok);font-weight:700}
+textarea{width:100%;height:340px;margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:10px;
+background:var(--code);color:var(--fg);font:12.5px/1.5 ui-monospace,Consolas,monospace;white-space:pre;overflow:auto}
+code{background:var(--code);border-radius:5px;padding:1px 6px;font:13.5px ui-monospace,Consolas,monospace}
+a{color:var(--accent)}
+</style>
+<div class="wrap">
+<h1>Ligar o anexo do comprovante &mdash; SQL para o Supabase</h1>
+<p class="muted">Isto cria a tabela e o cofre onde ficam os comprovantes que as pessoas anexam depois de pagar. Pode rodar quantas vezes quiser: n&atilde;o apaga nada.</p>
+
+<ol>
+<li>Clique no bot&atilde;o abaixo &mdash; ele copia todo o SQL.</li>
+<li>No Supabase, abra <b>SQL Editor</b> &rarr; <b>New query</b>.</li>
+<li>Clique dentro da &aacute;rea de texto e cole (<b>Ctrl&nbsp;+&nbsp;V</b>).</li>
+<li>Clique em <b>Run</b>. Tem que terminar com <b>Success</b>.</li>
+</ol>
+
+<button id="btn">Copiar todo o SQL</button><span id="msg"></span>
+
+<p class="muted">Se o bot&atilde;o n&atilde;o funcionar: clique dentro da caixa abaixo, aperte <b>Ctrl&nbsp;+&nbsp;A</b> e <b>Ctrl&nbsp;+&nbsp;C</b>.</p>
+<textarea id="sql" spellcheck="false" wrap="off">/* ============================================================
+   0022 - Comprovante de pagamento anexado pela pessoa
+
+   Quando o Pix não é do gateway automático, a confirmação é
+   manual: a organização procura o valor e o código no extrato.
+   Isso funciona, mas escorrega justamente nos casos comuns —
+   a mãe paga a inscrição do filho, o banco não mostra a
+   mensagem, dois pagamentos do mesmo valor no mesmo minuto.
+
+   Aqui a pessoa pode anexar o comprovante do banco logo depois
+   de pagar. A organização abre o arquivo, confere e marca pago
+   sem precisar caçar no extrato.
+
+   O balde é PRIVADO, ao contrário do balde das capas. Um
+   comprovante de Pix mostra nome completo, banco, agência,
+   valor e, em muitos bancos, pedaço do CPF de quem pagou e de
+   quem recebeu. Um link público disso seria um vazamento de
+   dado pessoal com endereço fixo. Quem organiza abre por link
+   assinado, que vence em minutos.
+
+   Como no aceite dos termos, isto vive em tabela própria em vez
+   de virar coluna em `inscricoes`: aquele caminho está em
+   produção com gente se inscrevendo agora, e não há motivo
+   para mexer nele.
+
+   Idempotente: pode rodar de novo à vontade.
+   ============================================================ */
+
+-- -----------------------------------------------------------------------------
+-- 1. De qual inscrição é este arquivo
+--    O caminho no balde é &#x27;&lt;id da inscrição&gt;/&lt;arquivo&gt;&#x27;. Ler o id direto com
+--    um cast estouraria a política inteira se algum dia entrasse um caminho
+--    fora do formato; aqui, caminho estranho devolve nulo e a política
+--    simplesmente nega.
+-- -----------------------------------------------------------------------------
+create or replace function public.inscricao_do_caminho(caminho text)
+returns uuid
+language sql
+immutable
+as $$
+  select case
+    when caminho ~ &#x27;^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/&#x27;
+      then substring(caminho from 1 for 36)::uuid
+    else null
+  end;
+$$;
+
+comment on function public.inscricao_do_caminho(text) is
+  &#x27;Extrai o id da inscrição do caminho do comprovante; nulo se o caminho não começar com um uuid.&#x27;;
+
+-- -----------------------------------------------------------------------------
+-- 2. O registro do anexo
+-- -----------------------------------------------------------------------------
+create table if not exists public.comprovantes_pagamento (
+  id            uuid primary key default gen_random_uuid(),
+  inscricao_id  uuid not null references public.inscricoes(id) on delete cascade,
+  enviado_por   uuid not null references auth.users(id) on delete cascade,
+  caminho       text not null,            -- onde o arquivo está no balde privado
+  tipo          text not null default &#x27;&#x27;, -- image/jpeg, application/pdf...
+  tamanho       integer not null default 0,
+  enviado_em    timestamptz not null default now()
+);
+
+comment on table public.comprovantes_pagamento is
+  &#x27;Comprovante do banco anexado por quem se inscreveu, para a organização conferir o Pix.&#x27;;
+comment on column public.comprovantes_pagamento.caminho is
+  &#x27;Caminho no balde privado &quot;comprovantes&quot;. Só se abre por link assinado.&#x27;;
+
+create index if not exists comprovantes_por_inscricao
+  on public.comprovantes_pagamento (inscricao_id, enviado_em desc);
+
+alter table public.comprovantes_pagamento enable row level security;
+
+/* Enviar: só em nome próprio e só para inscrição que é sua. Sem a segunda
+   condição, qualquer pessoa logada penduraria arquivo na inscrição alheia. */
+drop policy if exists &quot;comprovantes: dono anexa&quot; on public.comprovantes_pagamento;
+create policy &quot;comprovantes: dono anexa&quot; on public.comprovantes_pagamento
+  for insert with check (
+    enviado_por = auth.uid()
+    and exists (
+      select 1 from public.inscricoes i
+      where i.id = inscricao_id and i.titular_id = auth.uid()
+    )
+  );
+
+/* Ler: a pessoa vê o que anexou; a organização vê todos, que é o motivo de
+   existir. */
+drop policy if exists &quot;comprovantes: dono ou organizador le&quot; on public.comprovantes_pagamento;
+create policy &quot;comprovantes: dono ou organizador le&quot; on public.comprovantes_pagamento
+  for select using (
+    public.eh_organizador()
+    or exists (
+      select 1 from public.inscricoes i
+      where i.id = inscricao_id and i.titular_id = auth.uid()
+    )
+  );
+
+/* Apagar: enquanto a inscrição ainda está pendente, quem anexou pode tirar —
+   foto errada, comprovante de outra pessoa, print que mostrava mais do que
+   devia. Depois de paga, o anexo é a justificativa do &quot;pago&quot; e só a
+   organização mexe. */
+drop policy if exists &quot;comprovantes: tira o proprio&quot; on public.comprovantes_pagamento;
+create policy &quot;comprovantes: tira o proprio&quot; on public.comprovantes_pagamento
+  for delete using (
+    public.eh_organizador()
+    or exists (
+      select 1 from public.inscricoes i
+      where i.id = inscricao_id
+        and i.titular_id = auth.uid()
+        and i.status = &#x27;pendente&#x27;
+    )
+  );
+
+-- não existe policy de UPDATE: um comprovante trocado no lugar não prova nada.
+
+grant select, insert, delete on public.comprovantes_pagamento to authenticated;
+
+-- -----------------------------------------------------------------------------
+-- 3. O balde privado
+-- -----------------------------------------------------------------------------
+insert into storage.buckets (id, name, public)
+values (&#x27;comprovantes&#x27;, &#x27;comprovantes&#x27;, false)
+on conflict (id) do update set public = false;
+
+drop policy if exists &quot;comprovantes: dono envia&quot; on storage.objects;
+create policy &quot;comprovantes: dono envia&quot; on storage.objects
+  for insert with check (
+    bucket_id = &#x27;comprovantes&#x27;
+    and exists (
+      select 1 from public.inscricoes i
+      where i.id = public.inscricao_do_caminho(name)
+        and i.titular_id = auth.uid()
+    )
+  );
+
+drop policy if exists &quot;comprovantes: dono ou organizador abre&quot; on storage.objects;
+create policy &quot;comprovantes: dono ou organizador abre&quot; on storage.objects
+  for select using (
+    bucket_id = &#x27;comprovantes&#x27;
+    and (
+      public.eh_organizador()
+      or exists (
+        select 1 from public.inscricoes i
+        where i.id = public.inscricao_do_caminho(name)
+          and i.titular_id = auth.uid()
+      )
+    )
+  );
+
+drop policy if exists &quot;comprovantes: dono ou organizador apaga&quot; on storage.objects;
+create policy &quot;comprovantes: dono ou organizador apaga&quot; on storage.objects
+  for delete using (
+    bucket_id = &#x27;comprovantes&#x27;
+    and (
+      public.eh_organizador()
+      or exists (
+        select 1 from public.inscricoes i
+        where i.id = public.inscricao_do_caminho(name)
+          and i.titular_id = auth.uid()
+          and i.status = &#x27;pendente&#x27;
+      )
+    )
+  );
+
+-- sem policy de UPDATE no balde: não se sobrescreve comprovante, envia-se outro.
+</textarea>
+
+<p class="muted">Enquanto isto n&atilde;o for rodado, o site continua funcionando normal &mdash; o campo de anexar simplesmente n&atilde;o aparece.</p>
+</div>
+<script>
+document.getElementById("btn").onclick = async () => {
+  const t = document.getElementById("sql");
+  try { await navigator.clipboard.writeText(t.value); }
+  catch (e) { t.focus(); t.select(); document.execCommand("copy"); }
+  document.getElementById("msg").textContent = "Copiado! Agora cole no Supabase.";
+};
+</script>
