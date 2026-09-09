@@ -1387,7 +1387,8 @@ async function telaMinhas() {
   /* Aviso no alto, e não só dentro de cada cartão: quem se inscreveu antes de
      o anexo existir já pagou e não tem motivo nenhum para abrir a inscrição de
      novo. Se ninguém avisar, o comprovante nunca vem. */
-  const faltando = estado.minhas.filter(i => i.status === "pendente" && !temAnexo(i));
+  const faltando = estado.minhas.filter(
+    i => i.status === "pendente" && inscricaoMinha(i) && !temAnexo(i));
   if (faltando.length) {
     html += '<div class="aviso info" style="margin-bottom:18px"><span>📎</span><span>' +
       (faltando.length === 1
@@ -1440,7 +1441,7 @@ async function telaMinhas() {
         /* Quem já se inscreveu antes deste campo existir nunca mais abre o Pix:
            ele já pagou. Sem um botão próprio, o comprovante ficaria escondido
            atrás de "Ver o Pix" justamente para quem mais precisa mandá-lo. */
-        (i.status === "pendente"
+        (i.status === "pendente" && inscricaoMinha(i)
           ? '<button class="btn' + (temAnexo(i) ? " fantasma" : "") + '" data-anexar="' + i.id + '">📎 ' +
             (temAnexo(i) ? "Ver o comprovante" : "Anexar comprovante") + '</button>' : "") +
         '<button class="btn fantasma" data-comprovante="' + i.id + '">Comprovante de inscrição</button> ' +
@@ -1492,6 +1493,20 @@ function vigiarPendentes() {
 /** true se a inscrição já tem pelo menos um comprovante anexado. */
 function temAnexo(i) {
   return !!(i && i.comprovantes_pagamento && i.comprovantes_pagamento.length);
+}
+
+/**
+ * true se a inscrição é da própria pessoa que está logada.
+ *
+ * Quem administra enxerga, nesta mesma tela, as inscrições de todo mundo — é
+ * assim desde antes do anexo existir. Só que anexar comprovante em inscrição
+ * alheia o banco não deixa, e com razão: o comprovante prova quem pagou. Sem
+ * esta conferência, o botão aparecia para a administração em cima da inscrição
+ * dos outros e só entregava um erro seco quando clicado.
+ */
+function inscricaoMinha(i) {
+  const meu = estado.sessao && estado.sessao.user && estado.sessao.user.id;
+  return !!(meu && i && i.titular_id === meu);
 }
 
 async function mostrarPix(id) {
@@ -1626,13 +1641,20 @@ async function pintarAnexo(id, automatico) {
     '</div>').join("");
 
   const jaPago = ins.status === "pago";
+  // Quem administra vê a inscrição dos outros aqui; para essas, o quadro é só
+  // de leitura — o banco não deixa (nem deveria) anexar em nome de terceiro.
+  const minha = inscricaoMinha(ins);
+  const pedeEnvio = !jaPago && minha;
+
+  if (!minha && !lista.length) { caixa.innerHTML = ""; return; }
 
   caixa.innerHTML =
     '<div class="painel-anexo">' +
-      '<span class="eyebrow">' + (jaPago ? "Pagamento confirmado" : "Já pagou?") + '</span>' +
+      '<span class="eyebrow">' +
+        (!minha ? "Comprovante" : jaPago ? "Pagamento confirmado" : "Já pagou?") + '</span>' +
       '<h4 style="margin:4px 0 6px">' +
         (lista.length ? "Comprovante do pagamento" : "Anexe o comprovante") + '</h4>' +
-      (jaPago ? "" :
+      (!pedeEnvio ? "" :
         '<p class="explica" style="margin:0">' +
           (automatico
             ? 'O pagamento pelo aplicativo do banco confirma sozinho, em geral em menos de um ' +
@@ -1652,7 +1674,7 @@ async function pintarAnexo(id, automatico) {
           '<li>Para quem foi (o nome de quem recebeu)</li>' +
         '</ul>') +
       (enviados ? '<div class="comprovantes-enviados">' + enviados + '</div>' : "") +
-      (jaPago ? "" :
+      (!pedeEnvio ? "" :
         '<form class="forma-anexo" data-anexo="' + esc(id) + '">' +
           '<label>Nome de quem fez o Pix' +
             '<input name="pagador" required minlength="3" autocomplete="name" ' +
