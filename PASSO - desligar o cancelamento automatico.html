@@ -1,0 +1,86 @@
+<title>Desligar o cancelamento automatico</title>
+<style>
+:root{--bg:#f7f6f3;--fg:#23211d;--muted:#7c7768;--card:#fff;--line:#e4e1d9;--accent:#2f6fd6;--code:#f0ede6;--ok:#1e7a3d}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#1b1a18;--fg:#e9e6df;--muted:#9a9587;--card:#242320;--line:#38352f;--accent:#7fa8ee;--code:#2c2a25;--ok:#7fc99a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:820px;margin:0 auto;padding:26px 18px 80px}
+h1{font-size:22px;margin:0 0 6px}
+p{margin:8px 0}
+.muted{color:var(--muted)}
+ol{padding-left:22px}
+li{margin:7px 0}
+button{font:600 16px/1 inherit;padding:14px 22px;border-radius:10px;border:1px solid var(--accent);
+background:var(--accent);color:#fff;cursor:pointer;margin:14px 0}
+button:active{transform:translateY(1px)}
+#msg{display:inline-block;margin-left:12px;color:var(--ok);font-weight:700}
+textarea{width:100%;height:340px;margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:10px;
+background:var(--code);color:var(--fg);font:12.5px/1.5 ui-monospace,Consolas,monospace;white-space:pre;overflow:auto}
+code{background:var(--code);border-radius:5px;padding:1px 6px;font:13.5px ui-monospace,Consolas,monospace}
+a{color:var(--accent)}
+</style>
+<div class="wrap">
+<h1>Desligar o cancelamento autom&aacute;tico</h1>
+<p class="muted">O prazo de 24 horas continua valendo. O que muda &eacute; que <b>ningu&eacute;m mais &eacute; cancelado por uma rotina</b>: as vencidas passam a aparecer em destaque no Painel, e voc&ecirc; decide uma a uma. Pode rodar quantas vezes quiser.</p>
+
+<ol>
+<li>Clique no bot&atilde;o abaixo.</li>
+<li>No Supabase, <b>SQL Editor</b> &rarr; <b>New query</b>, cole (<b>Ctrl&nbsp;+&nbsp;V</b>) e clique em <b>Run</b>.</li>
+<li>Tem que terminar com <b>Success</b>.</li>
+</ol>
+
+<button id="btn">Copiar o SQL</button><span id="msg"></span>
+
+<p class="muted">Se o bot&atilde;o n&atilde;o funcionar: clique na caixa, <b>Ctrl&nbsp;+&nbsp;A</b> e <b>Ctrl&nbsp;+&nbsp;C</b>.</p>
+<textarea id="sql" spellcheck="false" wrap="off">/* ============================================================
+   0025 - Ninguém cancela sozinho
+
+   A 0024 pôs o prazo em 24 horas e mandou o pg_cron cancelar as
+   pendentes vencidas de hora em hora. Está errado, e o motivo é
+   do negócio, não do código: no Pix com conferência manual
+   existe sempre uma janela em que a pessoa JÁ PAGOU e o sistema
+   ainda não sabe. Uma rotina que cancela sozinha dentro dessa
+   janela cancela a inscrição de alguém que pagou — e quem paga
+   uma corrida e descobre no dia que a inscrição sumiu não volta.
+
+   A partir daqui, o prazo de 24 horas continua existindo e
+   continua valendo, mas quem cancela é uma pessoa. O Painel
+   mostra as vencidas em destaque, com o comprovante ao lado
+   quando existe, e a organização decide uma a uma — ou todas de
+   uma vez, depois de conferir.
+
+   A função continua aqui, intacta: ela deixa de ser um relógio
+   e passa a ser um botão.
+
+   Idempotente: pode rodar de novo à vontade.
+   ============================================================ */
+
+/* ==== 1. Desligar o relógio ==== */
+do $$
+begin
+  if exists (select 1 from cron.job where jobname = &#x27;balcao-expirar-pendencias&#x27;) then
+    perform cron.unschedule(&#x27;balcao-expirar-pendencias&#x27;);
+    raise notice &#x27;Pronto: o cancelamento automatico foi desligado.&#x27;;
+  else
+    raise notice &#x27;Nada a desligar: o cancelamento automatico ja nao estava agendado.&#x27;;
+  end if;
+exception when others then
+  raise notice &#x27;Nao consegui mexer no agendamento (%). Se o pg_cron nem esta ligado, nao ha relogio nenhum rodando — que e justamente o que queremos.&#x27;, sqlerrm;
+end $$;
+
+/* ==== 2. Deixar registrado para quem ler isto depois ==== */
+comment on function public.expirar_pendencias(integer) is
+  &#x27;Cancela as inscricoes pendentes vencidas. NAO roda sozinha: e chamada pelo &#x27;
+  &#x27;botao do Painel, depois de a organizacao conferir. Ver 0025.&#x27;;
+</textarea>
+
+<p class="muted">Enquanto isto n&atilde;o for rodado, o site j&aacute; parou de cancelar por conta pr&oacute;pria &mdash; falta s&oacute; desligar o rel&oacute;gio que roda dentro do banco.</p>
+</div>
+<script>
+document.getElementById("btn").onclick = async () => {
+  const t = document.getElementById("sql");
+  try { await navigator.clipboard.writeText(t.value); }
+  catch (e) { t.focus(); t.select(); document.execCommand("copy"); }
+  document.getElementById("msg").textContent = "Copiado! Agora cole no Supabase.";
+};
+</script>

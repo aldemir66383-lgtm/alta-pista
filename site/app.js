@@ -22,6 +22,12 @@ const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c =>
  * não só que a pessoa aceitou, mas O QUE ela aceitou — o texto muda, o aceite
  * dela não. Ao editar `site/termos.html`, mude a data lá e aqui.
  */
+/* WhatsApp da organização, para quem não consegue anexar pelo site. Fica aqui
+   em cima, e não espalhado pelo meio do código, porque é o tipo de coisa que
+   muda de número e não pode ficar sobrando em canto esquecido. */
+const WHATSAPP_SUPORTE = "5583981146195";
+const WHATSAPP_SUPORTE_VISIVEL = "(83) 98114-6195";
+
 const TERMOS_VERSAO = "2026-09-09.2";
 
 const dinheiro = c => (c / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -920,8 +926,12 @@ function cartao(ev) {
       '<div class="preco-linha">' +
         '<span class="preco">' + (preco > 0 ? dinheiro(preco) : "Gratuito") + '</span>' +
         (lote && (ev.lotes || []).length > 1 ? '<small>' + esc(lote.nome) + '</small>' : "") +
-        (rest != null ? '<span class="vagas" style="margin-left:auto">' +
-          (rest === 0 ? "Sem vagas" : rest === 1 ? "1 vaga" : rest + " vagas") + '</span>' : "") +
+        /* Só o estado, nunca o número. Quantas vagas restam é informação da
+           organização: em público ela empurra ("faltam 3!") ou desanima
+           ("ainda tem 87..."), e nos dois casos mexe na decisão de quem se
+           inscreve por um motivo que não é a prova. "Sem vagas" fica, porque
+           aí a pessoa precisa saber antes de tentar. */
+        (rest === 0 ? '<span class="vagas" style="margin-left:auto">Sem vagas</span>' : "") +
       '</div>' + acao +
       /* Divulgar não pode exigir abrir o evento primeiro. Quem administra
          manda link de prova o dia inteiro, e cada clique a mais nesse caminho
@@ -1011,7 +1021,7 @@ async function telaEvento(slug) {
         (ev.distancias ? '<div class="linha-dados"><dt>Percursos</dt><dd>' + esc(ev.distancias) + '</dd></div>' : "") +
         '<div class="linha-dados"><dt>Valor' + (lote && ev.lotes.length > 1 ? " · " + esc(lote.nome) : "") +
           '</dt><dd class="mono">' + valorComTaxa(precoAtual(ev)) + '</dd></div>' +
-        (rest != null ? '<div class="linha-dados"><dt>Vagas restantes</dt><dd class="mono">' + rest + '</dd></div>' : "") +
+        (rest === 0 ? '<div class="linha-dados"><dt>Vagas</dt><dd class="mono">Esgotadas</dd></div>' : "") +
         (ev.na_fila ? '<div class="linha-dados"><dt>Na lista de espera</dt><dd class="mono">' + ev.na_fila + '</dd></div>' : "") +
       '</dl>' + tabelaLotes +
       (String(ev.edital || "").trim()
@@ -1127,7 +1137,10 @@ function respostaDoEvento(ev, pergunta) {
       tem("ate") || tem("encerramento") || tem("encerrar") || tem("aberta") ||
       tem("abertas") || tem("vaga") || tem("vagas") || tem("espera") || tem("fila")) {
     const status = ev.inscricoes_abertas ? "Inscrições abertas no site." : "Inscrições encerradas.";
-    const vagas = ev.vagas ? " Vagas restantes: " + (vagasRestantes(ev) ?? "ilimitadas") + "." : "";
+    // Sem o número de vagas: ver o comentário no cartão do evento.
+    const vagas = vagasRestantes(ev) === 0
+      ? " As vagas esgotaram — dá para entrar na lista de espera."
+      : "";
     return "Situação das inscrições: " + status + vagas;
   }
 
@@ -1501,7 +1514,9 @@ function vigiarPendentes() {
   }, 20000);
 }
 
-/** Quando a inscrição pendente vira cancelada sozinha: 24 h depois de feita. */
+/* Quando a inscrição pendente passa do prazo: 24 h depois de feita. Passar do
+   prazo não cancela nada sozinho — põe a inscrição na lista que a organização
+   confere no Painel. Ver supabase/0025_ninguem_cancela_sozinho.sql. */
 const HORAS_PARA_PAGAR = 24;
 function prazoDePagamento(i) {
   return new Date(new Date(i.criado_em).getTime() + HORAS_PARA_PAGAR * 3600000);
@@ -1581,10 +1596,11 @@ async function mostrarPix(id) {
      Um prazo que só existe no documento cancela inscrição de gente que nunca
      soube que ele existia. */
   const prazo = '<div class="aviso" style="margin-top:4px"><span>⏱</span><span>' +
-    'Esta inscrição vale por <b>24 horas</b>. Se o pagamento não for feito até lá, ' +
-    'ela é <b>cancelada automaticamente</b> e a vaga volta para a fila. ' +
-    'Depois de pagar, <b>anexe o comprovante aqui embaixo</b>: com ele anexado, ' +
-    'a inscrição sai do prazo automático e espera a conferência.</span></div>';
+    'Esta inscrição vale por <b>24 horas</b>. Passado esse prazo sem pagamento, ' +
+    'a organização <b>pode cancelá-la</b> e devolver a vaga para a fila. ' +
+    'Depois de pagar, <b>anexe o comprovante aqui embaixo</b>: é o que mostra à ' +
+    'organização que o pagamento saiu, mesmo que ela ainda não o tenha encontrado ' +
+    'no extrato.</span></div>';
 
   const rodape = automatico
     ? '<p style="font-size:.82rem;color:var(--tinta-fraca)">Depois de pagar, <b>não precisa ' +
@@ -1725,8 +1741,34 @@ async function pintarAnexo(id, automatico) {
           '<button class="btn" type="submit">📎 Enviar comprovante</button>' +
           '<p class="explica" style="margin:2px 0 0;font-size:.78rem">Foto JPG, PNG ou WEBP, ou ' +
             'PDF, até 8 MB. Só você e a organização enxergam este arquivo.</p>' +
-        '</form>') +
+        '</form>' +
+        /* Saída de emergência. Por mais que o envio já aceite o que os celulares
+           entregam, sempre sobra alguém: aparelho antigo, internet ruim, um
+           navegador que bloqueia o campo de arquivo. Essa pessoa já pagou — não
+           dá para deixá-la sem caminho e depois cancelar a inscrição dela. */
+        '<div class="saida-whatsapp">' +
+          '<span>Não está conseguindo enviar por aqui?</span>' +
+          '<a class="btn fantasma pequeno" target="_blank" rel="noopener" href="' +
+            esc(linkSuporteWhatsApp(ins)) + '">Mandar pelo WhatsApp ' +
+            WHATSAPP_SUPORTE_VISIVEL + '</a>' +
+        '</div>') +
     '</div>';
+}
+
+/**
+ * Link de WhatsApp já com a inscrição identificada. Sem o código na mensagem,
+ * a organização recebe uma foto solta e volta a adivinhar de quem é — que é o
+ * problema que o anexo veio resolver.
+ */
+function linkSuporteWhatsApp(ins) {
+  const partes = [
+    "Olá! Não consegui anexar o comprovante pelo site e vou mandar por aqui."
+  ];
+  if (ins && ins.participante_nome) partes.push("Inscrito: " + ins.participante_nome);
+  if (ins && ins.codigo) partes.push("Código: " + ins.codigo);
+  if (ins && ins.eventos && ins.eventos.nome) partes.push("Evento: " + ins.eventos.nome);
+  return "https://wa.me/" + WHATSAPP_SUPORTE + "?text=" +
+    encodeURIComponent(partes.join(String.fromCharCode(10)));
 }
 
 /** Data e hora curtinhas, do jeito que se lê aqui: 09/09/2026 às 14:32. */
@@ -2069,10 +2111,12 @@ async function telaPainel() {
     return;
   }
   carregando("#v-painel");
-  // Best-effort: devolve as vagas presas em pendências vencidas antes de
-  // mostrar os números. Se a função ainda não foi instalada (supabase/0013),
-  // segue sem barulho.
-  try { await api.expirarPendencias(); } catch (e) { /* 0013 ainda não rodou */ }
+  /* Aqui havia uma chamada que cancelava as pendências vencidas sozinha, só de
+     alguém abrir o Painel. Saiu de propósito. No Pix conferido na mão existe
+     sempre uma janela em que a pessoa já pagou e o sistema ainda não sabe;
+     cancelar dentro dessa janela derruba a inscrição de quem pagou. Agora as
+     vencidas aparecem em destaque logo abaixo e quem cancela é uma pessoa,
+     depois de conferir. Ver supabase/0025_ninguem_cancela_sozinho.sql. */
   try {
     const [cfg, evs, ins] = await Promise.all([
       api.configuracao(), api.eventosDoPainel(), api.inscritosDoPainel()
@@ -2203,7 +2247,7 @@ async function telaPainel() {
         ? '<button class="btn fantasma" data-peitos="1">Imprimir números de peito</button>' : "") +
       (inscritos.length ? '<button class="btn fantasma" id="exportar">Baixar planilha</button>' : "") +
       '</div>' +
-    '</div>' + cobrarComprovante(inscritos) + tabelaInscritos(inscritos) + '</div>';
+    '</div>' + vencidasParaConferir(inscritos) + cobrarComprovante(inscritos) + tabelaInscritos(inscritos) + '</div>';
 
   html += '<div class="painel"><span class="eyebrow">Sua conta</span>' +
     '<h3 style="margin-top:4px">Senha de acesso</h3>' +
@@ -2299,10 +2343,84 @@ function textoDaCobranca() {
   return "Olá! Sua inscrição ainda está como PENDENTE no site." + BRANCO +
     "Se você já pagou, entre em alta-pista.vercel.app, vá em MINHAS INSCRIÇÕES " +
     "e anexe o comprovante do Pix — é rápido e é por ele que confirmamos." + BRANCO +
-    "Se ainda não pagou, o Pix está lá na mesma tela. Atenção: a inscrição " +
-    "não paga é cancelada automaticamente 24 horas depois de feita, e a vaga " +
-    "volta para a fila." + BRANCO +
+    "Se ainda não pagou, o Pix está lá na mesma tela. Atenção: passadas 24 horas " +
+    "sem pagamento, a inscrição pode ser cancelada e a vaga volta para a fila." + BRANCO +
     "Qualquer dúvida, é só responder por aqui.";
+}
+
+/**
+ * As inscrições que passaram do prazo — em destaque, e NADA cancelado ainda.
+ *
+ * O prazo de 24 horas existe para a vaga não ficar presa por quem desistiu.
+ * Mas cancelar sozinho, na hora exata, derruba junto quem pagou e ainda não
+ * foi conferido: no Pix conferido na mão essa janela sempre existe. Então o
+ * site faz a parte dele — junta, ordena, mostra o comprovante quando há um e
+ * põe o contato a um clique — e deixa a última palavra com quem organiza.
+ *
+ * Quem já anexou comprovante aparece separado, e em cima: essa é a pessoa que
+ * quase certamente pagou, e é a que não pode ser cancelada por descuido.
+ */
+function vencidasParaConferir(lista) {
+  const agora = Date.now();
+  const vencidas = (lista || []).filter(i =>
+    i.status === "pendente" && i.valor_centavos > 0 &&
+    prazoDePagamento(i).getTime() <= agora);
+  if (!vencidas.length) return "";
+
+  // Quem anexou primeiro: é quem corre risco de ser cancelado por engano.
+  vencidas.sort((a, b) => (temAnexo(b) ? 1 : 0) - (temAnexo(a) ? 1 : 0));
+  const comAnexo = vencidas.filter(temAnexo).length;
+
+  const linhas = vencidas.map(i => {
+    const anexos = (i.comprovantes_pagamento || [])
+      .slice().sort((a, b) => String(b.enviado_em).localeCompare(String(a.enviado_em)));
+    const fone = String(i.participante_telefone || "").replace(/\D/g, "");
+    return '<div class="comprovante-linha' + (anexos.length ? " tem-comprovante" : "") + '">' +
+      '<span><b>' + esc(i.participante_nome) + '</b>' +
+        (anexos.length ? ' <span class="tag pago">📎 anexou</span>' : "") +
+        '<br><span class="comprovante-quando">' + esc((i.eventos || {}).nome || "") +
+        ' · ' + esc(i.codigo) + ' · ' + dinheiro(i.valor_centavos) +
+        ' · venceu ' + esc(dataHoraCurta(prazoDePagamento(i))) +
+        (anexos.length && anexos[0].pagador_nome
+          ? '<br>pago por <b>' + esc(anexos[0].pagador_nome) + '</b>' : "") +
+      '</span></span>' +
+      '<span class="comprovante-acoes">' +
+        (anexos.length
+          ? '<button class="btn fantasma pequeno" data-ver-comprovante="' +
+            esc(anexos[0].caminho) + '">📎 Ver</button> ' : "") +
+        (fone.length >= 10
+          ? '<a class="btn fantasma pequeno" target="_blank" rel="noopener" ' +
+            'href="https://wa.me/55' + esc(fone.length > 11 ? fone.slice(-11) : fone) +
+            '?text=' + encodeURIComponent(textoDaCobranca()) + '">WhatsApp</a> ' : "") +
+        '<button class="btn pequeno" data-status="' + i.id + '|pago">✓ Marcar pago</button> ' +
+        '<button class="btn perigo pequeno" data-status="' + i.id + '|cancelada">Cancelar</button>' +
+      '</span>' +
+    '</div>';
+  }).join("");
+
+  return '<div class="painel painel-vencidas" style="margin-top:18px">' +
+    '<span class="eyebrow">Passaram do prazo</span>' +
+    '<h3 style="margin-top:4px">' + vencidas.length +
+      (vencidas.length === 1 ? ' inscrição vencida' : ' inscrições vencidas') +
+      ' — confira antes de cancelar</h3>' +
+    '<p class="explica" style="margin-top:4px">Estas passaram das 24 horas sem confirmação. ' +
+      '<b>O site não cancelou nenhuma</b>, e não vai cancelar sozinho: pode ter gente que ' +
+      'pagou e ainda não foi conferida. Olhe o extrato ou o comprovante anexado e decida uma ' +
+      'a uma.</p>' +
+    (comAnexo
+      ? '<div class="aviso info" style="margin-top:10px"><span>📎</span><span>' +
+        '<b>' + comAnexo + (comAnexo === 1 ? ' delas anexou' : ' delas anexaram') +
+        ' comprovante.</b> Comece por ' + (comAnexo === 1 ? "ela" : "elas") +
+        ' — quase certamente já pagaram.</span></div>' : "") +
+    '<div class="comprovantes-enviados" style="margin-top:12px">' + linhas + '</div>' +
+    '<div class="acoes" style="margin-top:14px">' +
+      '<button class="btn perigo" data-cancelar-vencidas="' + vencidas.length + '">' +
+        'Cancelar as ' + vencidas.length + ' vencidas</button>' +
+    '</div>' +
+    '<p class="explica" style="margin-top:8px">O botão acima cancela de uma vez só as que ' +
+      '<b>não anexaram comprovante</b>. Quem anexou fica de fora — para essas, decida na ' +
+      'linha, depois de abrir o arquivo.</p>' +
+  '</div>';
 }
 
 function cobrarComprovante(lista) {
@@ -2340,8 +2458,9 @@ function cobrarComprovante(lista) {
       (alvo.length === 1 ? ' inscrição pendente sem comprovante' : ' inscrições pendentes sem comprovante') +
     '</h3>' +
     '<p class="explica" style="margin-top:4px">Estas são as pessoas que ainda não pagaram ' +
-      '— ou pagaram e não anexaram o comprovante. Todas serão canceladas sozinhas ' +
-      '24 horas depois de terem se inscrito, a menos que anexem. Avise antes disso.</p>' +
+      '— ou pagaram e não anexaram o comprovante. Nenhuma é cancelada sozinha: quando ' +
+      'passarem das 24 horas, elas sobem para o bloco de cima e você decide. Avisar agora ' +
+      'costuma resolver antes de chegar lá.</p>' +
     '<div class="acoes" style="margin-top:12px">' +
       (emails.length
         ? '<a class="btn" href="' + esc(mailto) + '">✉️ Abrir e-mail para os ' + emails.length + '</a>' +
@@ -3347,6 +3466,14 @@ document.addEventListener("submit", async e => {
     torrar(mensagemDe(err));
     botao.disabled = false;
     botao.textContent = antes;
+    /* Deu errado uma vez: a saída pelo WhatsApp deixa de ser rodapé discreto e
+       passa a ser a próxima coisa que a pessoa vê. Quem já pagou e não
+       consegue enviar não pode ficar batendo no mesmo botão. */
+    const saida = forma.parentElement && forma.parentElement.querySelector(".saida-whatsapp");
+    if (saida) {
+      saida.classList.add("em-destaque");
+      saida.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
   }
 });
 
@@ -3355,7 +3482,7 @@ document.addEventListener("click", async e => {
 
   const alvo = e.target.closest("[data-ir],[data-abrir],[data-inscrever],[data-voltar-evento]," +
     "[data-copiar],[data-copiar-link],[data-pix],[data-cancelar],[data-sair],[data-editar],[data-publicar],[data-comprovante]," +
-    "[data-ver-comprovante],[data-tirar-comprovante],[data-anexar],[data-copiar-lista]," +
+    "[data-ver-comprovante],[data-tirar-comprovante],[data-anexar],[data-copiar-lista],[data-cancelar-vencidas]," +
     "[data-abrir-fechar],[data-apagar],[data-apagar-inscricao],[data-status],[data-imprimir],[data-recarregar],"
     + "[data-peito],[data-peitos],[data-kit],[data-compartilhar],[data-calendario],[data-certificado]," +
     "[data-resultado],[data-resultados-de],[data-limpar-filtro],[data-tirar-acesso]");
@@ -3518,6 +3645,31 @@ document.addEventListener("click", async e => {
     const [id, novo] = d.status.split("|");
     try { await api.definirStatus(id, novo); torrar("Situação atualizada"); await telaPainel(); }
     catch (err) { torrar(mensagemDe(err)); }
+  }
+
+  /* Cancelar as vencidas de uma vez — mas só as que NÃO anexaram comprovante.
+     Quem anexou é quase sempre quem já pagou e ainda não foi conferido; essas
+     ficam de fora do atalho de propósito, para não caírem por descuido no meio
+     de uma limpeza. */
+  if (d.cancelarVencidas) {
+    const agora = Date.now();
+    const alvo = (estado.painel.inscritos || []).filter(i =>
+      i.status === "pendente" && i.valor_centavos > 0 &&
+      prazoDePagamento(i).getTime() <= agora && !temAnexo(i));
+    if (!alvo.length)
+      return torrar("Todas as vencidas anexaram comprovante — confira uma a uma.");
+    if (!confirm("Cancelar " + alvo.length + " inscrição(ões) vencida(s) sem comprovante?" +
+                 String.fromCharCode(10, 10) +
+                 "Quem anexou comprovante NÃO será cancelado." + String.fromCharCode(10) +
+                 "Isto pode ser desfeito depois, com o botão Reabrir de cada linha."))
+      return;
+    let feitas = 0;
+    for (const i of alvo) {
+      try { await api.definirStatus(i.id, "cancelada"); feitas++; }
+      catch (err) { /* segue com as outras; o total no fim conta a verdade */ }
+    }
+    torrar(feitas + " de " + alvo.length + " cancelada(s)");
+    await telaPainel();
   }
 });
 

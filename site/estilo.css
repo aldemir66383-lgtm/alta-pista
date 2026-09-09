@@ -454,7 +454,10 @@ dl{margin:0}
   background:var(--superficie);border:1px solid var(--borda);border-radius:var(--r);
   padding:9px 12px;font-size:.84rem;color:var(--tinta-media);
 }
-.comprovante-acoes{display:flex;gap:6px;flex-shrink:0}
+/* Quebra de linha obrigatória: na lista das vencidas cada linha tem quatro
+   botões, e no celular eles saíam pela direita — o "Cancelar" ficava fora da
+   tela, que é justamente o que ninguém pode clicar sem ver. */
+.comprovante-acoes{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 
 /* O campo de arquivo cru é feio e, no celular, o botão nativo fica minúsculo.
    O rótulo inteiro vira a área clicável e o input some por baixo. */
@@ -494,6 +497,26 @@ dl{margin:0}
   display:inline-block;margin-top:4px;font-size:.72rem;font-weight:700;
   color:var(--tinta-media);
 }
+
+/* A saída pelo WhatsApp, para quem o envio pelo site não atende. Discreta por
+   padrão; se um envio falhar, ganha destaque. */
+.saida-whatsapp{
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+  margin-top:14px;padding-top:12px;border-top:1px solid var(--borda);
+  font-size:.82rem;color:var(--tinta-media);
+}
+.saida-whatsapp.em-destaque{
+  border:2px solid var(--pendente);border-radius:var(--r);
+  padding:12px;background:var(--pendente-veu);color:var(--tinta);
+}
+
+/* As vencidas: destaque de aviso, não de erro. Não houve falha nenhuma — há
+   uma decisão esperando uma pessoa. */
+.painel-vencidas{border-left:4px solid var(--pendente)}
+.comprovante-linha.tem-comprovante{
+  border-color:var(--pago);background:var(--pago-veu);
+}
+.comprovante-linha.tem-comprovante b{color:var(--tinta)}
 
 /* --------------------------------------------------------------- tabela -- */
 .rolagem{overflow-x:auto}
