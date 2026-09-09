@@ -458,21 +458,34 @@ dl{margin:0}
 
 /* O campo de arquivo cru é feio e, no celular, o botão nativo fica minúsculo.
    O rótulo inteiro vira a área clicável e o input some por baixo. */
-.enviar-comprovante{
+/* A lista do que precisa aparecer no comprovante. Existe porque "mande o
+   comprovante" não bastou: chegou print cortado, só do "Pagamento concluído". */
+.o-que-precisa{margin:10px 0 0;padding-left:20px;font-size:.84rem;color:var(--tinta-media);line-height:1.7}
+.o-que-precisa li{margin:0}
+
+.forma-anexo{display:grid;gap:10px;margin-top:14px}
+.forma-anexo label{font-size:.72rem}
+.forma-anexo .btn{justify-self:start}
+
+/* O campo de arquivo cru é feio e, no celular, o botão nativo fica minúsculo.
+   O rótulo inteiro vira a área clicável e o input some por baixo. */
+.escolher-arquivo{
   position:relative;overflow:hidden;
   /* flex-direction em pé: os formulários do site empilham rótulo e campo, e a
      regra geral de `label` alcança este aqui também. Sem voltar para linha, o
      clipe fica numa linha e o texto na de baixo. */
   display:inline-flex;flex-direction:row;align-items:center;justify-content:center;
-  gap:8px;margin-top:12px;cursor:pointer;white-space:nowrap;
-  background:var(--acento);color:var(--sobre-acento);border-radius:var(--r);
-  padding:10px 16px;font-weight:700;font-size:.82rem;
+  gap:8px;cursor:pointer;white-space:nowrap;justify-self:start;
+  background:var(--superficie);color:var(--tinta);
+  border:1px solid var(--borda-forte);border-radius:var(--r);
+  padding:11px 18px;font-weight:700;font-size:.82rem;
   text-transform:uppercase;letter-spacing:.05em;
 }
-.enviar-comprovante::before{content:"📎"}
-.enviar-comprovante input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
-.enviar-comprovante:has(input:disabled){opacity:.6;cursor:progress}
-.enviar-comprovante:focus-within{outline:3px solid var(--acento-escuro);outline-offset:2px}
+.escolher-arquivo::before{content:"📎"}
+.escolher-arquivo input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.escolher-arquivo:focus-within{outline:3px solid var(--acento-escuro);outline-offset:2px}
+.nome-do-arquivo{font-size:.82rem;color:var(--pago);font-weight:700;word-break:break-all}
+.comprovante-quando{font-weight:400;font-size:.78rem;color:var(--tinta-fraca)}
 
 /* Na lista de inscritos: a pendência que já tem comprovante precisa saltar,
    porque é ela que dá para resolver agora. */

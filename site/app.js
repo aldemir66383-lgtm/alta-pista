@@ -22,7 +22,7 @@ const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c =>
  * não só que a pessoa aceitou, mas O QUE ela aceitou — o texto muda, o aceite
  * dela não. Ao editar `site/termos.html`, mude a data lá e aqui.
  */
-const TERMOS_VERSAO = "2026-09-08";
+const TERMOS_VERSAO = "2026-09-09";
 
 const dinheiro = c => (c / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const MESES = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
@@ -1288,9 +1288,13 @@ async function telaInscricao() {
            pessoa já preencheu. */
         '<label class="caixinha aceite-termos" style="margin-top:18px">' +
           '<input type="checkbox" name="aceite" required>' +
+          /* A lista é específica de propósito. Um aceite genérico não sustenta a
+             cláusula que surpreende — e a troca de tamanho de camisa é a que
+             mais surpreende na hora de retirar o kit. */
           '<span>Li e aceito os <a href="/termos.html" target="_blank" rel="noopener">' +
-          'termos de uso</a>, incluindo a taxa de serviço e o uso de imagem ' +
-          'para divulgação do evento.</span>' +
+          'termos de uso</a>, incluindo a taxa de serviço, o uso de imagem para ' +
+          'divulgação do evento e a entrega de outro tamanho de camisa caso o ' +
+          'tamanho escolhido acabe.</span>' +
         '</label>' +
         '<div class="acoes">' +
           '<button class="btn" type="submit" id="botao-enviar">' +
@@ -1380,6 +1384,20 @@ async function telaMinhas() {
     '<div class="cabeca-secao"><h2>Minhas inscrições</h2>' +
     '<p>Tudo que você inscreveu com este e-mail, para você e para dependentes.</p></div>';
 
+  /* Aviso no alto, e não só dentro de cada cartão: quem se inscreveu antes de
+     o anexo existir já pagou e não tem motivo nenhum para abrir a inscrição de
+     novo. Se ninguém avisar, o comprovante nunca vem. */
+  const faltando = estado.minhas.filter(i => i.status === "pendente" && !temAnexo(i));
+  if (faltando.length) {
+    html += '<div class="aviso info" style="margin-bottom:18px"><span>📎</span><span>' +
+      (faltando.length === 1
+        ? 'Se você já pagou, <b>anexe o comprovante do Pix</b> na inscrição abaixo. '
+        : 'Se você já pagou, <b>anexe o comprovante do Pix</b> nas ' + faltando.length +
+          ' inscrições pendentes abaixo. ') +
+      'É por ele que a organização confere e confirma — sem isso, a conferência ' +
+      'depende de encontrar o seu pagamento no extrato.</span></div>';
+  }
+
   if (!estado.minhas.length) {
     html += '<div class="vazio"><h3>Você ainda não tem inscrições</h3>' +
       '<p>Escolha um evento na aba Eventos para começar.</p>' +
@@ -1416,8 +1434,15 @@ async function telaMinhas() {
         (ev.local ? '<div class="linha-dados"><dt>Onde</dt><dd>' + esc(ev.local) + '</dd></div>' : "") +
       '</dl>' +
       '<div id="pix-' + i.id + '"></div>' +
+      '<div id="anexo-' + i.id + '"></div>' +
       '<div class="acoes">' +
         (i.status === "pendente" ? '<button class="btn" data-pix="' + i.id + '">Ver o Pix</button>' : "") +
+        /* Quem já se inscreveu antes deste campo existir nunca mais abre o Pix:
+           ele já pagou. Sem um botão próprio, o comprovante ficaria escondido
+           atrás de "Ver o Pix" justamente para quem mais precisa mandá-lo. */
+        (i.status === "pendente"
+          ? '<button class="btn' + (temAnexo(i) ? " fantasma" : "") + '" data-anexar="' + i.id + '">📎 ' +
+            (temAnexo(i) ? "Ver o comprovante" : "Anexar comprovante") + '</button>' : "") +
         '<button class="btn fantasma" data-comprovante="' + i.id + '">Comprovante de inscrição</button> ' +
         (ev.data ? '<button class="btn fantasma pequeno" data-calendario="' + esc(ev.slug) + '">📅 Salvar na agenda</button>' : "") +
         (i.status !== "pago" && i.status !== "cancelada"
@@ -1462,6 +1487,11 @@ function vigiarPendentes() {
     if (estado.minhas.some(i => i.status === "pago")) torrar("Pagamento confirmado!");
     telaMinhas();
   }, 20000);
+}
+
+/** true se a inscrição já tem pelo menos um comprovante anexado. */
+function temAnexo(i) {
+  return !!(i && i.comprovantes_pagamento && i.comprovantes_pagamento.length);
 }
 
 async function mostrarPix(id) {
@@ -1537,8 +1567,7 @@ async function mostrarPix(id) {
         pedidoDeCodigo +
         rodape +
       '</div>' +
-    '</div>' +
-    '<div id="anexo-' + id + '"></div>';
+    '</div>';
 
   if (automatico && expiraEm) vigiarValidadePix(id, expiraEm, idContador);
 
@@ -1585,7 +1614,8 @@ async function pintarAnexo(id, automatico) {
   const podeTirar = ins.status === "pendente";
   const enviados = lista.map(c =>
     '<div class="comprovante-linha">' +
-      '<span>📎 Enviado em ' + esc(dataHoraCurta(c.enviado_em)) + '</span>' +
+      '<span>📎 <b>' + esc(c.pagador_nome || "Sem o nome de quem pagou") + '</b>' +
+      '<br><span class="comprovante-quando">Enviado em ' + esc(dataHoraCurta(c.enviado_em)) + '</span></span>' +
       '<span class="comprovante-acoes">' +
         '<button class="btn fantasma pequeno" data-ver-comprovante="' + esc(c.caminho) + '">Abrir</button>' +
         (podeTirar
@@ -1595,27 +1625,51 @@ async function pintarAnexo(id, automatico) {
       '</span>' +
     '</div>').join("");
 
+  const jaPago = ins.status === "pago";
+
   caixa.innerHTML =
     '<div class="painel-anexo">' +
-      '<span class="eyebrow">Já pagou?</span>' +
-      '<h4 style="margin:4px 0 6px">Anexe o comprovante</h4>' +
-      '<p class="explica" style="margin:0">' +
-        (automatico
-          ? 'O pagamento pelo aplicativo do banco confirma sozinho, em geral em menos de um ' +
-            'minuto. Se passar disso e esta tela continuar pendente, anexe aqui o comprovante ' +
-            'que a organização confere na mão.'
-          : 'Envie o comprovante do Pix (foto da tela ou PDF do banco). É por ele que a ' +
-            'organização confere e confirma a sua inscrição — principalmente se quem pagou ' +
-            'não foi você.') +
-      '</p>' +
+      '<span class="eyebrow">' + (jaPago ? "Pagamento confirmado" : "Já pagou?") + '</span>' +
+      '<h4 style="margin:4px 0 6px">' +
+        (lista.length ? "Comprovante do pagamento" : "Anexe o comprovante") + '</h4>' +
+      (jaPago ? "" :
+        '<p class="explica" style="margin:0">' +
+          (automatico
+            ? 'O pagamento pelo aplicativo do banco confirma sozinho, em geral em menos de um ' +
+              'minuto. Se passar disso e esta tela continuar pendente, anexe aqui o comprovante ' +
+              'que a organização confere na mão.'
+            : 'Envie o comprovante do Pix — o comprovante inteiro, aquele que o banco gera ' +
+              'depois do pagamento. Um print só da tela de "Pagamento concluído" não serve: ' +
+              'a organização precisa ver os dados para conferir.') +
+        '</p>' +
+        /* A lista existe porque já chegou print cortado. Dizer "mande o
+           comprovante" não bastou: a pessoa manda o que o banco mostrou
+           primeiro. Dizer o que precisa aparecer, item por item, resolve. */
+        '<ul class="o-que-precisa">' +
+          '<li><b>Nome de quem fez o Pix</b></li>' +
+          '<li><b>Valor</b> pago</li>' +
+          '<li><b>Data e hora</b></li>' +
+          '<li>Para quem foi (o nome de quem recebeu)</li>' +
+        '</ul>') +
       (enviados ? '<div class="comprovantes-enviados">' + enviados + '</div>' : "") +
-      '<label class="enviar-comprovante">' +
-        '<span>' + (lista.length ? "Anexar outro arquivo" : "Escolher arquivo") + '</span>' +
-        '<input type="file" accept="image/*,application/pdf" ' +
-          'data-anexar-em="' + esc(id) + '">' +
-      '</label>' +
-      '<p class="explica" style="margin:6px 0 0;font-size:.78rem">Foto JPG, PNG ou WEBP, ou ' +
-        'PDF, até 8 MB. Só você e a organização enxergam este arquivo.</p>' +
+      (jaPago ? "" :
+        '<form class="forma-anexo" data-anexo="' + esc(id) + '">' +
+          '<label>Nome de quem fez o Pix' +
+            '<input name="pagador" required minlength="3" autocomplete="name" ' +
+              'placeholder="Como aparece no banco" value="' +
+              esc(lista.length ? "" : (ins.participante_nome || "")) + '">' +
+          '</label>' +
+          '<p class="explica" style="margin:0;font-size:.78rem">Se quem pagou foi outra pessoa ' +
+            '— mãe, pai, amigo — escreva o nome <b>dela</b>, não o seu. É esse nome que ' +
+            'aparece no extrato da organização.</p>' +
+          '<label class="escolher-arquivo"><span>Escolher arquivo</span>' +
+            '<input type="file" name="arquivo" accept="image/*,application/pdf" required>' +
+          '</label>' +
+          '<span class="nome-do-arquivo"></span>' +
+          '<button class="btn" type="submit">📎 Enviar comprovante</button>' +
+          '<p class="explica" style="margin:2px 0 0;font-size:.78rem">Foto JPG, PNG ou WEBP, ou ' +
+            'PDF, até 8 MB. Só você e a organização enxergam este arquivo.</p>' +
+        '</form>') +
     '</div>';
 }
 
@@ -2201,6 +2255,9 @@ function tabelaInscritos(lista) {
         ? '<button class="btn pequeno" data-ver-comprovante="' + esc(anexos[0].caminho) + '">' +
           '📎 Comprovante' + (anexos.length > 1 ? " (" + anexos.length + ")" : "") + '</button> '
         : "";
+      // O nome digitado é o que salva a conferência quando a imagem vem
+      // cortada: é ele que se compara com o extrato.
+      const quemPagou = anexos.length ? String(anexos[0].pagador_nome || "").trim() : "";
       return '<tr>' +
         '<td><span class="nome">' + esc(i.participante_nome) + '</span>' +
           (i.eh_titular ? "" : ' <span class="tag espera">dependente</span>') +
@@ -2231,8 +2288,10 @@ function tabelaInscritos(lista) {
         '<td class="mono">' + esc(i.codigo) + '</td>' +
         '<td class="mono">' + (i.valor_centavos > 0 ? dinheiro(i.valor_centavos) : "—") + '</td>' +
         '<td><span class="tag ' + classeStatus(i.status) + '">' + rotuloStatus(i.status) + '</span>' +
-          (anexos.length && i.status === "pendente"
-            ? '<br><span class="aviso-anexo">📎 comprovante anexado</span>' : "") + '</td>' +
+          (anexos.length
+            ? '<br><span class="aviso-anexo">📎 comprovante anexado</span>' +
+              (quemPagou ? '<br><span class="contato">pago por ' + esc(quemPagou) + '</span>' : "")
+            : "") + '</td>' +
         '<td style="white-space:nowrap">' +
           (i.status !== "pago" ? '<span class="contato">—</span>'
             : i.kit_retirado
@@ -3118,28 +3177,44 @@ document.addEventListener("input", e => {
   }
 });
 
-/* O campo de arquivo do comprovante nasce e morre junto com o quadro do Pix,
-   que é redesenhado a cada vez. Ouvir no documento evita religar o campo a
-   cada redesenho — e evita o campo que existe na tela mas não responde. */
-document.addEventListener("change", async e => {
+/* O campo de arquivo do comprovante nasce e morre junto com o quadro, que é
+   redesenhado a cada envio. Ouvir no documento evita religar o campo a cada
+   redesenho — e evita o campo que existe na tela mas não responde. */
+document.addEventListener("change", e => {
   const campo = e.target;
-  if (!campo || !campo.dataset || !campo.dataset.anexarEm) return;
-  const id = campo.dataset.anexarEm;
+  if (!campo || campo.name !== "arquivo" || !campo.closest(".forma-anexo")) return;
+  const aviso = campo.closest(".forma-anexo").querySelector(".nome-do-arquivo");
   const arq = campo.files && campo.files[0];
-  if (!arq) return;
-  campo.disabled = true;
-  const rotulo = campo.closest(".enviar-comprovante");
-  const antes = rotulo ? rotulo.querySelector("span").textContent : "";
-  if (rotulo) rotulo.querySelector("span").textContent = "Enviando…";
+  if (aviso) aviso.textContent = arq ? "✓ " + arq.name : "";
+});
+
+/* O envio é por formulário, e não no instante em que a pessoa escolhe o
+   arquivo, porque agora o nome de quem pagou vai junto — e ele é o que salva a
+   conferência quando a imagem vem cortada. */
+document.addEventListener("submit", async e => {
+  const forma = e.target;
+  if (!forma || !forma.classList || !forma.classList.contains("forma-anexo")) return;
+  e.preventDefault();
+  const id = forma.dataset.anexo;
+  const dados = new FormData(forma);
+  const arq = dados.get("arquivo");
+  const pagador = String(dados.get("pagador") || "").trim();
+  if (!arq || !arq.size) return torrar("Escolha o arquivo do comprovante.");
+
+  const botao = forma.querySelector('button[type="submit"]');
+  const antes = botao.textContent;
+  botao.disabled = true;
+  botao.textContent = "Enviando…";
   try {
-    await api.enviarComprovante(id, arq);
+    await api.enviarComprovante(id, arq, pagador);
     torrar("Comprovante enviado — a organização vai conferir");
+    const ins = (estado.minhas || []).find(x => x.id === id);
+    if (ins) ins.comprovantes_pagamento = (ins.comprovantes_pagamento || []).concat([{}]);
     await pintarAnexo(id);
   } catch (err) {
     torrar(mensagemDe(err));
-    campo.value = "";
-    campo.disabled = false;
-    if (rotulo) rotulo.querySelector("span").textContent = antes;
+    botao.disabled = false;
+    botao.textContent = antes;
   }
 });
 
@@ -3148,7 +3223,7 @@ document.addEventListener("click", async e => {
 
   const alvo = e.target.closest("[data-ir],[data-abrir],[data-inscrever],[data-voltar-evento]," +
     "[data-copiar],[data-copiar-link],[data-pix],[data-cancelar],[data-sair],[data-editar],[data-publicar],[data-comprovante]," +
-    "[data-ver-comprovante],[data-tirar-comprovante]," +
+    "[data-ver-comprovante],[data-tirar-comprovante],[data-anexar]," +
     "[data-abrir-fechar],[data-apagar],[data-apagar-inscricao],[data-status],[data-imprimir],[data-recarregar],"
     + "[data-peito],[data-peitos],[data-kit],[data-compartilhar],[data-calendario],[data-certificado]," +
     "[data-resultado],[data-resultados-de],[data-limpar-filtro],[data-tirar-acesso]");
@@ -3178,6 +3253,12 @@ document.addEventListener("click", async e => {
   }
   if (d.pix) return mostrarPix(d.pix);
 
+  if (d.anexar) {
+    await pintarAnexo(d.anexar);
+    const caixa = $("#anexo-" + d.anexar);
+    if (caixa) caixa.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
   if (d.verComprovante) return abrirComprovante(d.verComprovante);
   if (d.tirarComprovante) {
     const [idAnexo, ...resto] = d.tirarComprovante.split("|");

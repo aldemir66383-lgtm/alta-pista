@@ -275,6 +275,7 @@ export async function inscrever(dados) {
  * não conhece essa ligação, baixamos a bandeira e pedimos de novo sem ele.
  */
 let temComprovantes = true;
+let temNomeDoPagador = true;   // a coluna pagador_nome chegou na 0023
 const CAMPOS_DO_EVENTO =
   "eventos(nome, slug, data, hora, local, cidade, uf, distancias, " +
   "numero_digitos, peito_cor, peito_logo_url, peito_fundo_url, " +
@@ -282,19 +283,29 @@ const CAMPOS_DO_EVENTO =
 
 function naoConheceComprovantes(erro) {
   const m = (erro && (erro.message + " " + (erro.details || ""))) || "";
-  return /comprovantes_pagamento|PGRST200|relationship|schema cache/i.test(m);
+  return /comprovantes_pagamento|pagador_nome|PGRST200|PGRST204|42703|relationship|schema cache|does not exist/i.test(m);
+}
+
+function camposDoAnexo() {
+  return ", comprovantes_pagamento(id, caminho, tipo, " +
+    (temNomeDoPagador ? "pagador_nome, " : "") + "enviado_em)";
 }
 
 async function inscricoesComAnexo(ordem) {
   const pedir = comAnexo => sb.from("inscricoes")
-    .select("*, " + CAMPOS_DO_EVENTO +
-      (comAnexo ? ", comprovantes_pagamento(id, caminho, tipo, enviado_em)" : ""))
+    .select("*, " + CAMPOS_DO_EVENTO + (comAnexo ? camposDoAnexo() : ""))
     .order(ordem, { ascending: false });
 
-  if (temComprovantes) {
+  /* Duas quedas possíveis, e cada uma desce um degrau só: sem a coluna
+     pagador_nome (falta a 0023) seguimos sem o nome; sem a tabela inteira
+     (falta a 0022) seguimos sem o anexo. Em nenhum dos dois a listagem pode
+     voltar vazia — é ela que mostra as inscrições. */
+  for (const tentativa of [1, 2]) {
+    if (!temComprovantes) break;
     const r = await pedir(true);
     if (!r.error) return r.data || [];
     if (!naoConheceComprovantes(r.error)) throw new Error(traduzir(r.error));
+    if (temNomeDoPagador && tentativa === 1) { temNomeDoPagador = false; continue; }
     temComprovantes = false;
   }
   return conferir(await pedir(false)) || [];
@@ -589,12 +600,19 @@ const TIPOS_DE_COMPROVANTE = {
 };
 export const LIMITE_DO_COMPROVANTE = 8 * 1024 * 1024;   // 8 MB
 
-export async function enviarComprovante(inscricaoId, arquivo) {
+export async function enviarComprovante(inscricaoId, arquivo, pagadorNome) {
   const ext = (arquivo.name.split(".").pop() || "").toLowerCase();
   const tipo = TIPOS_DE_COMPROVANTE[ext];
   if (!tipo) throw new Error("Envie uma foto (JPG, PNG ou WEBP) ou um PDF.");
   if (arquivo.size > LIMITE_DO_COMPROVANTE)
     throw new Error("Arquivo grande demais — use até 8 MB.");
+
+  /* O nome vai como texto, além da imagem. Já chegou print cortado, só no
+     "Pagamento concluído", sem dizer quem pagou — e sem isso a organização
+     não tem como casar o valor com a pessoa no extrato. */
+  const pagador = String(pagadorNome || "").trim();
+  if (pagador.length < 3)
+    throw new Error("Escreva o nome de quem fez o Pix, como aparece no banco.");
 
   const user = await meuId();
   if (!user) throw new Error("Entre na sua conta para anexar o comprovante.");
@@ -609,7 +627,7 @@ export async function enviarComprovante(inscricaoId, arquivo) {
      dado pessoal órfão guardado. */
   const r = await sb.from("comprovantes_pagamento").insert({
     inscricao_id: inscricaoId, enviado_por: user,
-    caminho, tipo, tamanho: arquivo.size
+    caminho, tipo, tamanho: arquivo.size, pagador_nome: pagador
   }).select().single();
   if (r.error) {
     await sb.storage.from("comprovantes").remove([caminho]).catch(() => {});
@@ -619,16 +637,22 @@ export async function enviarComprovante(inscricaoId, arquivo) {
 }
 
 export async function comprovantesDaInscricao(inscricaoId) {
-  const r = await sb.from("comprovantes_pagamento")
-    .select("id, caminho, tipo, tamanho, enviado_em")
-    .eq("inscricao_id", inscricaoId)
-    .order("enviado_em", { ascending: false });
-  if (r.error) {
-    if (naoConheceComprovantes(r.error)) { temComprovantes = false; return []; }
-    throw new Error(traduzir(r.error));
+  for (const tentativa of [1, 2]) {
+    const r = await sb.from("comprovantes_pagamento")
+      .select("id, caminho, tipo, tamanho, " +
+              (temNomeDoPagador ? "pagador_nome, " : "") + "enviado_em")
+      .eq("inscricao_id", inscricaoId)
+      .order("enviado_em", { ascending: false });
+    if (!r.error) return r.data || [];
+    if (!naoConheceComprovantes(r.error)) throw new Error(traduzir(r.error));
+    if (temNomeDoPagador && tentativa === 1) { temNomeDoPagador = false; continue; }
+    temComprovantes = false;
   }
-  return r.data || [];
+  return [];
 }
+
+/** false enquanto a migração 0023 não tiver rodado neste banco. */
+export function pedeNomeDoPagador() { return temNomeDoPagador; }
 
 /** false enquanto a migração 0022 não tiver rodado neste banco. */
 export function anexoDisponivel() { return temComprovantes; }
