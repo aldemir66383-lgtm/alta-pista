@@ -267,12 +267,41 @@ export async function inscrever(dados) {
     p_observacao: dados.observacao || ""
   }));
 }
+/**
+ * A migração 0022 (comprovante de pagamento) pode ainda não ter rodado no
+ * banco. Se pedirmos o comprovante junto da inscrição antes disso, o PostgREST
+ * recusa a consulta INTEIRA — e "Minhas inscrições" e o Painel ficariam vazios
+ * por causa de um enfeite. Então: pedimos com o anexo; se o banco disser que
+ * não conhece essa ligação, baixamos a bandeira e pedimos de novo sem ele.
+ */
+let temComprovantes = true;
+const CAMPOS_DO_EVENTO =
+  "eventos(nome, slug, data, hora, local, cidade, uf, distancias, " +
+  "numero_digitos, peito_cor, peito_logo_url, peito_fundo_url, " +
+  "peito_ativo, peito_pronto_url, retirada_avisos, imagem_url)";
+
+function naoConheceComprovantes(erro) {
+  const m = (erro && (erro.message + " " + (erro.details || ""))) || "";
+  return /comprovantes_pagamento|PGRST200|relationship|schema cache/i.test(m);
+}
+
+async function inscricoesComAnexo(ordem) {
+  const pedir = comAnexo => sb.from("inscricoes")
+    .select("*, " + CAMPOS_DO_EVENTO +
+      (comAnexo ? ", comprovantes_pagamento(id, caminho, tipo, enviado_em)" : ""))
+    .order(ordem, { ascending: false });
+
+  if (temComprovantes) {
+    const r = await pedir(true);
+    if (!r.error) return r.data || [];
+    if (!naoConheceComprovantes(r.error)) throw new Error(traduzir(r.error));
+    temComprovantes = false;
+  }
+  return conferir(await pedir(false)) || [];
+}
+
 export async function minhasInscricoes() {
-  return conferir(await sb.from("inscricoes")
-    .select("*, eventos(nome, slug, data, hora, local, cidade, uf, distancias, "
-            + "numero_digitos, peito_cor, peito_logo_url, peito_fundo_url, "
-            + "peito_ativo, peito_pronto_url, retirada_avisos, imagem_url)")
-    .order("criado_em", { ascending: false })) || [];
+  return inscricoesComAnexo("criado_em");
 }
 export async function gerarCobrancaGateway(inscricaoId) {
   const naoDelegar = msg => {           // erro que autoriza cair na função do banco
@@ -464,11 +493,7 @@ export async function apagarInscricao(id) {
   return conferir(await sb.from("inscricoes").delete().eq("id", id));
 }
 export async function inscritosDoPainel() {
-  return conferir(await sb.from("inscricoes")
-    .select("*, eventos(nome, slug, data, hora, local, cidade, uf, distancias, "
-            + "numero_digitos, peito_cor, peito_logo_url, peito_fundo_url, "
-            + "peito_ativo, peito_pronto_url, retirada_avisos, imagem_url)")
-    .order("criado_em", { ascending: false })) || [];
+  return inscricoesComAnexo("criado_em");
 }
 /* --------------------------------------------------------------- equipe -- */
 
@@ -545,6 +570,85 @@ export async function enviarCapa(arquivo) {
     .upload(caminho, arquivo, { cacheControl: "31536000", upsert: false, contentType: tipo });
   if (error) throw new Error(traduzir(error));
   return sb.storage.from("capas").getPublicUrl(caminho).data.publicUrl;
+}
+
+/* ------------------------------------------ comprovante de pagamento -- */
+
+/**
+ * O comprovante do banco vai para o balde PRIVADO "comprovantes", nunca para o
+ * das capas. Um comprovante de Pix mostra nome completo, banco, valor e, em
+ * muitos aplicativos, pedaço do CPF de quem pagou e de quem recebeu — publicar
+ * isso numa URL fixa seria entregar dado pessoal de quem confiou na gente.
+ *
+ * O caminho é sempre "<id da inscrição>/<sorteado>.<ext>": é por essa primeira
+ * pasta que a política do balde descobre de quem é o arquivo.
+ */
+const TIPOS_DE_COMPROVANTE = {
+  jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
+  webp: "image/webp", pdf: "application/pdf"
+};
+export const LIMITE_DO_COMPROVANTE = 8 * 1024 * 1024;   // 8 MB
+
+export async function enviarComprovante(inscricaoId, arquivo) {
+  const ext = (arquivo.name.split(".").pop() || "").toLowerCase();
+  const tipo = TIPOS_DE_COMPROVANTE[ext];
+  if (!tipo) throw new Error("Envie uma foto (JPG, PNG ou WEBP) ou um PDF.");
+  if (arquivo.size > LIMITE_DO_COMPROVANTE)
+    throw new Error("Arquivo grande demais — use até 8 MB.");
+
+  const user = await meuId();
+  if (!user) throw new Error("Entre na sua conta para anexar o comprovante.");
+
+  const caminho = inscricaoId + "/" + crypto.randomUUID() + "." + ext;
+  const { error } = await sb.storage.from("comprovantes")
+    .upload(caminho, arquivo, { cacheControl: "0", upsert: false, contentType: tipo });
+  if (error) throw new Error(traduzir(error));
+
+  /* O arquivo já subiu; se o registro falhar, o comprovante existiria no balde
+     sem ninguém saber que existe. Tiramos o arquivo de volta para não deixar
+     dado pessoal órfão guardado. */
+  const r = await sb.from("comprovantes_pagamento").insert({
+    inscricao_id: inscricaoId, enviado_por: user,
+    caminho, tipo, tamanho: arquivo.size
+  }).select().single();
+  if (r.error) {
+    await sb.storage.from("comprovantes").remove([caminho]).catch(() => {});
+    throw new Error(traduzir(r.error));
+  }
+  return r.data;
+}
+
+export async function comprovantesDaInscricao(inscricaoId) {
+  const r = await sb.from("comprovantes_pagamento")
+    .select("id, caminho, tipo, tamanho, enviado_em")
+    .eq("inscricao_id", inscricaoId)
+    .order("enviado_em", { ascending: false });
+  if (r.error) {
+    if (naoConheceComprovantes(r.error)) { temComprovantes = false; return []; }
+    throw new Error(traduzir(r.error));
+  }
+  return r.data || [];
+}
+
+/** false enquanto a migração 0022 não tiver rodado neste banco. */
+export function anexoDisponivel() { return temComprovantes; }
+
+/**
+ * Link temporário para abrir o comprovante. Vale cinco minutos: tempo de sobra
+ * para conferir, curto o bastante para um link copiado por engano não virar um
+ * comprovante aberto para sempre.
+ */
+export async function linkDoComprovante(caminho) {
+  const { data, error } = await sb.storage.from("comprovantes")
+    .createSignedUrl(caminho, 300);
+  if (error) throw new Error(traduzir(error));
+  return data.signedUrl;
+}
+
+export async function tirarComprovante(id, caminho) {
+  conferir(await sb.from("comprovantes_pagamento").delete().eq("id", id).select());
+  await sb.storage.from("comprovantes").remove([caminho]);
+  return true;
 }
 
 /**

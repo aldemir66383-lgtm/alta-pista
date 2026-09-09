@@ -158,6 +158,34 @@ await teste("forjar o aceite dos termos no nome de outra pessoa", async () => {
   confere(!r.ok, "BRECHA GRAVE: dá para forjar aceite no nome de outra pessoa");
 });
 
+await teste("ler os comprovantes de pagamento de outras pessoas", async () => {
+  // O caminho do arquivo é a chave do cofre: quem lê a coluna `caminho` sabe
+  // exatamente qual comprovante pedir ao balde. A tabela precisa estar fechada
+  // antes mesmo do balde.
+  const r = await rest("comprovantes_pagamento?select=inscricao_id,caminho,enviado_por");
+  if (r.ok) {
+    const j = await r.json();
+    confere(Array.isArray(j) && j.length === 0,
+      "VAZAMENTO: os comprovantes de pagamento foram lidos sem conta");
+  } else {
+    // 404 = a tabela ainda não existe neste banco (a migração 0022 não rodou).
+    confere([400, 401, 403, 404].includes(r.status),
+      "esperava recusa, veio " + r.status);
+  }
+});
+
+await teste("pendurar comprovante na inscrição de outra pessoa", async () => {
+  const r = await rest("comprovantes_pagamento", {
+    method: "POST",
+    body: JSON.stringify({
+      inscricao_id: "00000000-0000-0000-0000-000000000000",
+      enviado_por: "00000000-0000-0000-0000-000000000000",
+      caminho: "00000000-0000-0000-0000-000000000000/invasor.png"
+    })
+  });
+  confere(!r.ok, "BRECHA GRAVE: dá para anexar comprovante em inscrição alheia");
+});
+
 await teste("descobrir quem é organizador", async () => {
   const r = await rest("organizadores?select=user_id");
   const j = await r.json();
@@ -314,6 +342,27 @@ await teste("o balde de imagens existe e é público", async () => {
   const r = await fetch(URL_BASE + "/storage/v1/object/public/capas/_inexistente.png", { headers: cabecalhos });
   const t = await r.text();
   confere(/NoSuchKey|Object not found/i.test(t), "o balde 'capas' não parece existir: " + t.slice(0, 80));
+});
+
+await teste("listar os comprovantes guardados no balde", async () => {
+  /* O balde das capas é público de propósito; este não pode ser. Um
+     comprovante de Pix mostra nome completo, banco e valor. Aqui pedimos a
+     lista do balde sem conta: tem de vir vazia ou recusada. Se um dia alguém
+     marcar "Public" na tela do Supabase sem pensar, ou afrouxar a política,
+     é aqui que aparece. */
+  const r = await fetch(URL_BASE + "/storage/v1/object/list/comprovantes", {
+    method: "POST",
+    headers: { ...cabecalhos, "Content-Type": "application/json" },
+    body: JSON.stringify({ prefix: "", limit: 100 })
+  });
+  if (r.ok) {
+    const j = await r.json();
+    confere(Array.isArray(j) && j.length === 0,
+      "VAZAMENTO: dá para listar comprovantes de pagamento sem conta");
+  } else {
+    confere([400, 401, 403, 404].includes(r.status),
+      "esperava recusa, veio " + r.status);
+  }
 });
 
 await teste("o site publicado responde", async () => {

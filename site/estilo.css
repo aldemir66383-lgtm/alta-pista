@@ -438,6 +438,49 @@ dl{margin:0}
   padding:11px;max-height:110px;overflow:auto;color:var(--tinta-media);
 }
 
+/* ------------------------------------------- comprovante de pagamento -- */
+/* Fica logo abaixo do Pix, recuado e mais claro que o quadro principal: é o
+   passo seguinte ao pagamento, não uma segunda forma de pagar. */
+.painel-anexo{
+  margin-top:18px;padding:16px;border-radius:var(--r);
+  background:var(--superficie-2);border:1px dashed var(--borda-forte);
+}
+.painel-anexo h4{font-size:1rem;text-transform:uppercase;letter-spacing:.03em}
+.painel-anexo .explica{font-size:.85rem;color:var(--tinta-media);line-height:1.55}
+
+.comprovantes-enviados{display:grid;gap:8px;margin:12px 0 4px}
+.comprovante-linha{
+  display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;
+  background:var(--superficie);border:1px solid var(--borda);border-radius:var(--r);
+  padding:9px 12px;font-size:.84rem;color:var(--tinta-media);
+}
+.comprovante-acoes{display:flex;gap:6px;flex-shrink:0}
+
+/* O campo de arquivo cru é feio e, no celular, o botão nativo fica minúsculo.
+   O rótulo inteiro vira a área clicável e o input some por baixo. */
+.enviar-comprovante{
+  position:relative;overflow:hidden;
+  /* flex-direction em pé: os formulários do site empilham rótulo e campo, e a
+     regra geral de `label` alcança este aqui também. Sem voltar para linha, o
+     clipe fica numa linha e o texto na de baixo. */
+  display:inline-flex;flex-direction:row;align-items:center;justify-content:center;
+  gap:8px;margin-top:12px;cursor:pointer;white-space:nowrap;
+  background:var(--acento);color:var(--sobre-acento);border-radius:var(--r);
+  padding:10px 16px;font-weight:700;font-size:.82rem;
+  text-transform:uppercase;letter-spacing:.05em;
+}
+.enviar-comprovante::before{content:"📎"}
+.enviar-comprovante input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.enviar-comprovante:has(input:disabled){opacity:.6;cursor:progress}
+.enviar-comprovante:focus-within{outline:3px solid var(--acento-escuro);outline-offset:2px}
+
+/* Na lista de inscritos: a pendência que já tem comprovante precisa saltar,
+   porque é ela que dá para resolver agora. */
+.aviso-anexo{
+  display:inline-block;margin-top:4px;font-size:.72rem;font-weight:700;
+  color:var(--tinta-media);
+}
+
 /* --------------------------------------------------------------- tabela -- */
 .rolagem{overflow-x:auto}
 table{border-collapse:collapse;width:100%;font-size:.9rem;min-width:640px}
