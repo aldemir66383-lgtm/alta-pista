@@ -594,16 +594,53 @@ export async function enviarCapa(arquivo) {
  * O caminho é sempre "<id da inscrição>/<sorteado>.<ext>": é por essa primeira
  * pasta que a política do balde descobre de quem é o arquivo.
  */
+/* Decidir pelo tipo do arquivo, e só depois pela extensão.
+ *
+ * A primeira versão olhava só a extensão do nome, e isso derrubava metade dos
+ * celulares: foto de iPhone chega como IMG_0421.heic, a galeria do Android
+ * entrega "1000012345" sem extensão nenhuma, e arquivo compartilhado de outro
+ * aplicativo chega chamado só "image". Nos três casos o site dizia "envie uma
+ * foto ou um PDF" para quem estava enviando exatamente isso.
+ *
+ * SVG fica de fora de propósito, mesmo sendo imagem: SVG é XML e pode carregar
+ * script. Como o arquivo volta para a tela por um link do domínio do
+ * armazenamento, um SVG com script rodaria lá dentro. */
 const TIPOS_DE_COMPROVANTE = {
-  jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
-  webp: "image/webp", pdf: "application/pdf"
+  "image/jpeg": "jpg", "image/pjpeg": "jpg", "image/png": "png",
+  "image/webp": "webp", "image/gif": "gif", "image/bmp": "bmp",
+  "image/tiff": "tif", "image/heic": "heic", "image/heif": "heif",
+  "image/heic-sequence": "heic", "image/heif-sequence": "heif",
+  "application/pdf": "pdf"
 };
+const EXTENSOES_DE_COMPROVANTE = {
+  jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp",
+  gif: "image/gif", bmp: "image/bmp", tif: "image/tiff", tiff: "image/tiff",
+  heic: "image/heic", heif: "image/heif", pdf: "application/pdf"
+};
+
+/** Descobre tipo e extensão de um arquivo escolhido no celular ou no PC. */
+function reconhecerComprovante(arquivo) {
+  const tipo = String(arquivo.type || "").toLowerCase().split(";")[0].trim();
+  if (TIPOS_DE_COMPROVANTE[tipo])
+    return { tipo, ext: TIPOS_DE_COMPROVANTE[tipo] };
+
+  const nome = String(arquivo.name || "");
+  const ext = nome.includes(".") ? nome.split(".").pop().toLowerCase() : "";
+  if (EXTENSOES_DE_COMPROVANTE[ext])
+    return { tipo: EXTENSOES_DE_COMPROVANTE[ext], ext: ext === "jpeg" ? "jpg" : ext };
+
+  return null;
+}
 export const LIMITE_DO_COMPROVANTE = 8 * 1024 * 1024;   // 8 MB
 
 export async function enviarComprovante(inscricaoId, arquivo, pagadorNome) {
-  const ext = (arquivo.name.split(".").pop() || "").toLowerCase();
-  const tipo = TIPOS_DE_COMPROVANTE[ext];
-  if (!tipo) throw new Error("Envie uma foto (JPG, PNG ou WEBP) ou um PDF.");
+  const reconhecido = reconhecerComprovante(arquivo);
+  if (!reconhecido)
+    throw new Error("Não reconheci este arquivo. Envie uma foto (o print serve) " +
+      "ou o PDF do comprovante.");
+  const { tipo, ext } = reconhecido;
+  if (!arquivo.size)
+    throw new Error("O arquivo chegou vazio. Escolha de novo, pela galeria do celular.");
   if (arquivo.size > LIMITE_DO_COMPROVANTE)
     throw new Error("Arquivo grande demais — use até 8 MB.");
 

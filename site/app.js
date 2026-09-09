@@ -1684,8 +1684,15 @@ async function pintarAnexo(id, automatico) {
           '<p class="explica" style="margin:0;font-size:.78rem">Se quem pagou foi outra pessoa ' +
             '— mãe, pai, amigo — escreva o nome <b>dela</b>, não o seu. É esse nome que ' +
             'aparece no extrato da organização.</p>' +
+          /* Sem `required` aqui de propósito. O campo fica escondido atrás do
+             rótulo (é o jeito de ter um botão decente no celular), e um campo
+             escondido e obrigatório trava o envio EM SILÊNCIO: o navegador
+             tenta apontar o erro para um campo que não dá para mostrar e
+             desiste sem dizer nada. Quem apertava "Enviar" sem escolher o
+             arquivo via o botão não fazer absolutamente nada. A conferência é
+             feita no JavaScript, que consegue avisar. */
           '<label class="escolher-arquivo"><span>Escolher arquivo</span>' +
-            '<input type="file" name="arquivo" accept="image/*,application/pdf" required>' +
+            '<input type="file" name="arquivo" accept="image/*,application/pdf">' +
           '</label>' +
           '<span class="nome-do-arquivo"></span>' +
           '<button class="btn" type="submit">📎 Enviar comprovante</button>' +
@@ -3221,7 +3228,12 @@ document.addEventListener("submit", async e => {
   const dados = new FormData(forma);
   const arq = dados.get("arquivo");
   const pagador = String(dados.get("pagador") || "").trim();
-  if (!arq || !arq.size) return torrar("Escolha o arquivo do comprovante.");
+  if (!arq || !arq.size) {
+    torrar("Falta escolher o arquivo — toque em “Escolher arquivo”.");
+    const campo = forma.querySelector(".escolher-arquivo");
+    if (campo) campo.classList.add("faltando");
+    return;
+  }
 
   const botao = forma.querySelector('button[type="submit"]');
   const antes = botao.textContent;

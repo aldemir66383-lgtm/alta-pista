@@ -484,6 +484,7 @@ dl{margin:0}
 .escolher-arquivo::before{content:"📎"}
 .escolher-arquivo input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 .escolher-arquivo:focus-within{outline:3px solid var(--acento-escuro);outline-offset:2px}
+.escolher-arquivo.faltando{border-color:var(--cancelado);border-width:2px}
 .nome-do-arquivo{font-size:.82rem;color:var(--pago);font-weight:700;word-break:break-all}
 .comprovante-quando{font-weight:400;font-size:.78rem;color:var(--tinta-fraca)}
 
