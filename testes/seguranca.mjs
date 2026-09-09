@@ -344,25 +344,30 @@ await teste("o balde de imagens existe e é público", async () => {
   confere(/NoSuchKey|Object not found/i.test(t), "o balde 'capas' não parece existir: " + t.slice(0, 80));
 });
 
-await teste("listar os comprovantes guardados no balde", async () => {
+await teste("o cofre dos comprovantes existe e está trancado", async () => {
   /* O balde das capas é público de propósito; este não pode ser. Um
-     comprovante de Pix mostra nome completo, banco e valor. Aqui pedimos a
-     lista do balde sem conta: tem de vir vazia ou recusada. Se um dia alguém
-     marcar "Public" na tela do Supabase sem pensar, ou afrouxar a política,
-     é aqui que aparece. */
-  const r = await fetch(URL_BASE + "/storage/v1/object/list/comprovantes", {
-    method: "POST",
-    headers: { ...cabecalhos, "Content-Type": "application/json" },
-    body: JSON.stringify({ prefix: "", limit: 100 })
-  });
-  if (r.ok) {
-    const j = await r.json();
-    confere(Array.isArray(j) && j.length === 0,
-      "VAZAMENTO: dá para listar comprovantes de pagamento sem conta");
-  } else {
-    confere([400, 401, 403, 404].includes(r.status),
-      "esperava recusa, veio " + r.status);
-  }
+     comprovante de Pix mostra nome completo, banco e valor.
+
+     Tentamos enviar um arquivo sem conta. A resposta separa três mundos:
+     "Bucket not found" = a migração 0022 nunca rodou; um envio aceito =
+     qualquer um deposita arquivo no cofre; e a recusa por política = certo. */
+  const r = await fetch(
+    URL_BASE + "/storage/v1/object/comprovantes/00000000-0000-0000-0000-000000000000/sonda.png",
+    { method: "POST", headers: { ...cabecalhos, "Content-Type": "image/png" }, body: "x" });
+  const t = await r.text();
+  confere(!r.ok, "BRECHA GRAVE: dá para gravar no cofre dos comprovantes sem conta");
+  confere(!/NoSuchBucket|Bucket not found/i.test(t),
+    "o balde 'comprovantes' não existe: falta rodar supabase/0022_comprovante_de_pagamento.sql");
+  confere(/row-level security|Unauthorized|AccessDenied/i.test(t),
+    "recusa por outro motivo que não a política: " + t.slice(0, 90));
+});
+
+await teste("o cofre dos comprovantes não abre pela porta pública", async () => {
+  const r = await fetch(URL_BASE + "/storage/v1/object/public/comprovantes/qualquer.png",
+    { headers: cabecalhos });
+  const t = await r.text();
+  confere(!/NoSuchKey/i.test(t),
+    "VAZAMENTO: o balde 'comprovantes' está público — qualquer um abre comprovante alheio");
 });
 
 await teste("o site publicado responde", async () => {
