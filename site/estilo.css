@@ -311,7 +311,7 @@ nav button[aria-current="page"]{color:var(--acento);border-bottom-color:var(--ac
 }
 @media(max-width:640px){
   .hero{min-height:400px}
-  .hero-seta{width:36px;height:36px}
+  .hero-seta{width:44px;height:44px}   /* 36 era pequeno demais para o dedo */
   .hero-seta.anterior{left:8px}
   .hero-seta.proximo{right:8px}
   .hero-contador{display:none}
@@ -709,4 +709,19 @@ td .contato{color:var(--tinta-fraca);font-size:.81rem}
 .acoes-no-celular{display:none}
 @media (max-width:760px){
   .acoes-no-celular{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+
+  /* No celular quem clica é o dedo, não o ponteiro. Apple e Google pedem 44px
+     de altura; os botões pequenos do site tinham 32. Aumentamos só a altura
+     mínima e a folga lateral — a letra continua do mesmo tamanho, então nada
+     muda de lugar no computador nem incha as telas cheias de botão. */
+  .btn{min-height:44px}
+  .btn.pequeno{min-height:44px;padding:8px 14px}
+  .btn.micro{min-height:36px;padding:6px 10px}
+  /* O campo de arquivo do comprovante segue a mesma régua: é o botão que a
+     pessoa procura logo depois de pagar. */
+  .escolher-arquivo,.enviar-comprovante{min-height:44px}
+  /* Os atalhos da ajuda rápida e o botão de tema também são botões, mesmo sem
+     a classe .btn — e o de tema fica no topo, onde o polegar esbarra. */
+  .chip-ajuda{min-height:44px}
+  .btn-tema{width:44px;height:44px}
 }
