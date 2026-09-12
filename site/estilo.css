@@ -520,6 +520,16 @@ dl{margin:0}
   padding:12px;background:var(--pendente-veu);color:var(--tinta);
 }
 
+/* O formulário de correção. Recuado e com traço lateral: é um desvio dentro
+   da tela, não mais um bloco da lista. */
+.painel-correcao{
+  margin:16px 0;padding:18px;border-radius:var(--r);
+  background:var(--superficie-2);border:1px solid var(--borda);
+  border-left:3px solid var(--acento);
+}
+.painel-correcao h4{font-size:1rem;text-transform:uppercase;letter-spacing:.03em}
+.painel-correcao .explica{font-size:.85rem;color:var(--tinta-media);line-height:1.55}
+
 /* As vencidas: destaque de aviso, não de erro. Não houve falha nenhuma — há
    uma decisão esperando uma pessoa. */
 .painel-vencidas{border-left:4px solid var(--pendente)}

@@ -1465,6 +1465,7 @@ async function telaMinhas() {
       '</dl>' +
       '<div id="pix-' + i.id + '"></div>' +
       '<div id="anexo-' + i.id + '"></div>' +
+      '<div id="correcao-' + i.id + '"></div>' +
       '<div class="acoes">' +
         (i.status === "pendente" ? '<button class="btn" data-pix="' + i.id + '">Ver o Pix</button>' : "") +
         /* Quem já se inscreveu antes deste campo existir nunca mais abre o Pix:
@@ -1473,6 +1474,8 @@ async function telaMinhas() {
         (i.status === "pendente" && inscricaoMinha(i)
           ? '<button class="btn' + (temAnexo(i) ? " fantasma" : "") + '" data-anexar="' + i.id + '">📎 ' +
             (temAnexo(i) ? "Ver o comprovante" : "Anexar comprovante") + '</button>' : "") +
+        (inscricaoMinha(i) && podeCorrigir(i)
+          ? '<button class="btn fantasma" data-editar-inscricao="' + i.id + '">✎ Corrigir dados</button> ' : "") +
         '<button class="btn fantasma" data-comprovante="' + i.id + '">Comprovante de inscrição</button> ' +
         (ev.data ? '<button class="btn fantasma pequeno" data-calendario="' + esc(ev.slug) + '">📅 Salvar na agenda</button>' : "") +
         (i.status !== "pago" && i.status !== "cancelada"
@@ -1525,6 +1528,52 @@ function vigiarPendentes() {
 const HORAS_PARA_PAGAR = 24;
 function prazoDePagamento(i) {
   return new Date(new Date(i.criado_em).getTime() + HORAS_PARA_PAGAR * 3600000);
+}
+
+/**
+ * true se a própria pessoa ainda pode corrigir esta inscrição.
+ *
+ * Repete, do lado de fora, a mesma regra que o banco aplica por dentro
+ * (supabase/0026). Aqui serve só para não mostrar um botão que vai dar erro;
+ * quem decide de verdade é o banco, porque botão escondido não é segurança.
+ */
+function podeCorrigir(i) {
+  if (!i || i.status === "cancelada") return false;
+  const ev = i.eventos || {};
+  if (ev.resultados_publicados) return false;
+  if (ev.data) {
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    if (new Date(ev.data + "T00:00:00") < hoje) return false;
+  }
+  return true;
+}
+
+/** O formulário de correção, igual para a pessoa e para a organização. */
+function formularioDeCorrecao(i) {
+  const nasc = i.participante_nascimento || "";
+  return '<form class="painel-correcao" data-corrigir="' + esc(i.id) + '">' +
+    '<span class="eyebrow">Corrigir dados</span>' +
+    '<h4 style="margin:4px 0 2px">' + esc(i.participante_nome) + '</h4>' +
+    '<p class="explica" style="margin:0 0 12px">Dá para arrumar nome, nascimento, ' +
+      'e-mail e telefone. O valor, a situação e o código da inscrição não mudam — ' +
+      'e toda correção fica registrada.</p>' +
+    '<div class="campos duas">' +
+      '<label>Nome completo do participante' +
+        '<input name="nome" required minlength="3" autocomplete="name" value="' +
+        esc(i.participante_nome || "") + '"></label>' +
+      '<label>Data de nascimento' +
+        '<input name="nascimento" type="date" value="' + esc(nasc) + '"></label>' +
+      '<label>E-mail para contato' +
+        '<input name="email" type="email" value="' + esc(i.participante_email || "") + '"></label>' +
+      '<label>Telefone com DDD' +
+        '<input name="telefone" type="tel" inputmode="numeric" maxlength="15" value="' +
+        esc(i.participante_telefone || "") + '"></label>' +
+    '</div>' +
+    '<div class="acoes" style="margin-top:14px">' +
+      '<button class="btn" type="submit">Salvar a correção</button>' +
+      '<button class="btn fantasma" type="button" data-fechar-correcao="' + esc(i.id) + '">Cancelar</button>' +
+    '</div>' +
+  '</form>';
 }
 
 /** true se a inscrição já tem pelo menos um comprovante anexado. */
@@ -2493,6 +2542,10 @@ function tabelaInscritos(lista) {
     '<div class="busca-tabela-caixa">' +
       '<input id="busca-inscritos" class="busca-tabela" placeholder="🔍 Filtrar por nome, número de peito, código, situação ou e-mail...">' +
     '</div>' +
+    /* O formulário de correção mora aqui, acima da tabela, e não dentro da
+       linha: no celular a tabela rola para o lado, e um formulário lá dentro
+       nasceria fora da tela. */
+    '<div id="correcao-painel"></div>' +
     '<div class="rolagem" style="margin-top:6px"><table><thead><tr>' +
     '<th>Participante</th><th>Evento</th><th>Nº</th><th>Código</th><th>Valor</th><th>Situação</th><th>Kit</th><th></th>' +
     '</tr></thead><tbody id="tabela-inscritos-corpo">' + lista.map(i => {
@@ -2558,6 +2611,7 @@ function tabelaInscritos(lista) {
           (i.status !== "pago" && i.status !== "espera" ? '<button class="btn fantasma pequeno" data-status="' + i.id + '|pago">Marcar pago</button> ' : "") +
           (i.status !== "cancelada" ? '<button class="btn perigo pequeno" data-status="' + i.id + '|cancelada">Cancelar</button>' : "") +
           (i.status === "cancelada" ? '<button class="btn fantasma pequeno" data-status="' + i.id + '|pendente">Reabrir</button> ' : "") +
+          '<button class="btn fantasma pequeno" data-editar-inscricao="' + i.id + '">✎ Editar</button> ' +
           '<button class="btn fantasma pequeno" data-comprovante="' + i.id + '">Comprovante</button> ' +
           '<button class="btn perigo pequeno" data-apagar-inscricao="' + i.id + '" ' +
             'title="Tira do banco de vez. Cancelar apenas marca como cancelada.">Apagar</button>' +
@@ -3444,6 +3498,38 @@ document.addEventListener("change", e => {
    conferência quando a imagem vem cortada. */
 document.addEventListener("submit", async e => {
   const forma = e.target;
+
+  /* Correção dos dados da inscrição. Quem decide se pode é o banco: aqui só
+     mandamos e mostramos a resposta. Se a prova já passou ou o resultado saiu,
+     volta uma frase explicando, e é ela que a pessoa lê. */
+  if (forma && forma.classList && forma.classList.contains("painel-correcao")) {
+    e.preventDefault();
+    const id = forma.dataset.corrigir;
+    const f = new FormData(forma);
+    const botao = forma.querySelector('button[type="submit"]');
+    const antes = botao ? botao.textContent : "";
+    if (botao) { botao.disabled = true; botao.textContent = "Salvando…"; }
+    try {
+      await api.corrigirInscricao({
+        id,
+        nome: String(f.get("nome") || "").trim(),
+        nascimento: String(f.get("nascimento") || "").trim(),
+        email: String(f.get("email") || "").trim(),
+        telefone: String(f.get("telefone") || "").trim()
+      });
+      torrar("Dados corrigidos");
+      const caixa = $("#correcao-" + id) || $("#correcao-painel");
+      if (caixa) caixa.innerHTML = "";
+      // Recarrega a tela em que a pessoa está, para o nome novo aparecer.
+      if (vista === "painel") await telaPainel();
+      else { estado.minhas = await api.minhasInscricoes(); telaMinhas(); }
+    } catch (err) {
+      torrar(mensagemDe(err));
+      if (botao) { botao.disabled = false; botao.textContent = antes; }
+    }
+    return;
+  }
+
   if (!forma || !forma.classList || !forma.classList.contains("forma-anexo")) return;
   e.preventDefault();
   const id = forma.dataset.anexo;
@@ -3488,6 +3574,7 @@ document.addEventListener("click", async e => {
   const alvo = e.target.closest("[data-ir],[data-abrir],[data-inscrever],[data-voltar-evento]," +
     "[data-copiar],[data-copiar-link],[data-pix],[data-cancelar],[data-sair],[data-editar],[data-publicar],[data-comprovante]," +
     "[data-ver-comprovante],[data-tirar-comprovante],[data-anexar],[data-copiar-lista],[data-cancelar-vencidas]," +
+    "[data-editar-inscricao],[data-fechar-correcao]," +
     "[data-abrir-fechar],[data-apagar],[data-apagar-inscricao],[data-status],[data-imprimir],[data-recarregar],"
     + "[data-peito],[data-peitos],[data-kit],[data-compartilhar],[data-calendario],[data-certificado]," +
     "[data-resultado],[data-resultados-de],[data-limpar-filtro],[data-tirar-acesso]");
@@ -3527,6 +3614,26 @@ document.addEventListener("click", async e => {
     await copiarTexto(d.copiarLista, "Copiado");
     return;
   }
+  if (d.editarInscricao) {
+    const lista = (estado.painel.inscritos || []).concat(estado.minhas || []);
+    const i = lista.find(x => x.id === d.editarInscricao);
+    if (!i) return;
+    // No Painel o formulário é um só, acima da tabela; em Minhas inscrições ele
+    // abre dentro do próprio cartão, junto do que a pessoa está olhando.
+    const caixa = $("#correcao-" + i.id) || $("#correcao-painel");
+    if (!caixa) return;
+    caixa.innerHTML = formularioDeCorrecao(i);
+    caixa.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    const campo = caixa.querySelector('[name="nome"]');
+    if (campo) { campo.focus(); campo.select(); }
+    return;
+  }
+  if (d.fecharCorrecao) {
+    const caixa = $("#correcao-" + d.fecharCorrecao) || $("#correcao-painel");
+    if (caixa) caixa.innerHTML = "";
+    return;
+  }
+
   if (d.verComprovante) return abrirComprovante(d.verComprovante);
   if (d.tirarComprovante) {
     const [idAnexo, ...resto] = d.tirarComprovante.split("|");

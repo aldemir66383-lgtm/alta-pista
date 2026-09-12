@@ -1,0 +1,220 @@
+<title>Ligar a correção de inscrição</title>
+<style>
+:root{--bg:#f7f6f3;--fg:#23211d;--muted:#7c7768;--card:#fff;--line:#e4e1d9;--accent:#2f6fd6;--code:#f0ede6;--ok:#1e7a3d}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#1b1a18;--fg:#e9e6df;--muted:#9a9587;--card:#242320;--line:#38352f;--accent:#7fa8ee;--code:#2c2a25;--ok:#7fc99a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:820px;margin:0 auto;padding:26px 18px 80px}
+h1{font-size:22px;margin:0 0 6px}
+p{margin:8px 0}
+.muted{color:var(--muted)}
+ol{padding-left:22px}
+li{margin:7px 0}
+button{font:600 16px/1 inherit;padding:14px 22px;border-radius:10px;border:1px solid var(--accent);
+background:var(--accent);color:#fff;cursor:pointer;margin:14px 0}
+button:active{transform:translateY(1px)}
+#msg{display:inline-block;margin-left:12px;color:var(--ok);font-weight:700}
+textarea{width:100%;height:340px;margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:10px;
+background:var(--code);color:var(--fg);font:12.5px/1.5 ui-monospace,Consolas,monospace;white-space:pre;overflow:auto}
+code{background:var(--code);border-radius:5px;padding:1px 6px;font:13.5px ui-monospace,Consolas,monospace}
+a{color:var(--accent)}
+</style>
+<div class="wrap">
+<h1>Ligar a corre&ccedil;&atilde;o de inscri&ccedil;&atilde;o</h1>
+<p class="muted">Depois disto, quem errou o pr&oacute;prio nome corrige sozinho em <b>Minhas inscri&ccedil;&otilde;es</b>, e voc&ecirc; corrige qualquer uma pelo Painel. Pode rodar quantas vezes quiser: n&atilde;o apaga nada.</p>
+
+<ol>
+<li>Clique no bot&atilde;o abaixo.</li>
+<li>No Supabase, <b>SQL Editor</b> &rarr; <b>New query</b>, cole (<b>Ctrl&nbsp;+&nbsp;V</b>) e clique em <b>Run</b>.</li>
+<li>Tem que terminar com <b>Success</b>.</li>
+</ol>
+
+<button id="btn">Copiar o SQL</button><span id="msg"></span>
+
+<p class="muted">Se o bot&atilde;o n&atilde;o funcionar: clique na caixa, <b>Ctrl&nbsp;+&nbsp;A</b> e <b>Ctrl&nbsp;+&nbsp;C</b>.</p>
+<textarea id="sql" spellcheck="false" wrap="off">/* ============================================================
+   0026 - Corrigir os dados da inscrição
+
+   Até agora ninguém conseguia arrumar um nome escrito errado.
+   Nem a pessoa (a política da tabela só deixa a organização
+   escrever), nem a organização (o Painel nunca teve essa tela).
+   O jeito era apagar e refazer — perdendo o código, a data da
+   inscrição e o comprovante já anexado.
+
+   O erro é quase sempre bobo e é da própria pessoa: faltou o
+   sobrenome, o acento, um dígito do telefone. Se só a
+   organização puder corrigir, cada letra errada vira uma
+   mensagem no WhatsApp de quem já está ocupado conferindo
+   pagamento. Então a pessoa corrige a si mesma.
+
+   Mas com uma trava, e ela existe por um motivo concreto: visto
+   de fora, &quot;corrigir o nome&quot; e &quot;passar a minha inscrição paga
+   para outra pessoa&quot; são a MESMA operação. Como as provas têm
+   vaga limitada e kit por pessoa, uma inscrição que troca de
+   dono sem ninguém saber tira a camisa de alguém e põe na
+   largada quem não está na lista. Por isso:
+
+     - a pessoa corrige só a PRÓPRIA inscrição, e só enquanto a
+       prova não passou e o resultado não saiu. Depois disso o
+       nome virou documento: lista de largada, número de peito,
+       certificado;
+     - a organização corrige qualquer uma, a qualquer momento,
+       porque sempre sobra o caso que a regra não previu;
+     - toda correção fica registrada: quem, quando, de quê para
+       quê. Sem isso não há como distinguir o conserto do
+       repasse.
+
+   Só mexe em nome, nascimento, e-mail e telefone. Situação,
+   valor, lote, número de peito e evento ficam de fora de
+   propósito — corrigir o nome não pode virar porta para mudar
+   quanto se deve.
+
+   Idempotente: pode rodar de novo à vontade.
+   ============================================================ */
+
+-- -----------------------------------------------------------------------------
+-- 1. O registro das correções
+-- -----------------------------------------------------------------------------
+create table if not exists public.correcoes_inscricao (
+  id            uuid primary key default gen_random_uuid(),
+  inscricao_id  uuid not null references public.inscricoes(id) on delete cascade,
+  alterado_por  uuid references auth.users(id) on delete set null,
+  pela_organizacao boolean not null default false,
+  antes         jsonb not null,
+  depois        jsonb not null,
+  corrigido_em  timestamptz not null default now()
+);
+
+comment on table public.correcoes_inscricao is
+  &#x27;Histórico das correções de dados da inscrição: quem mudou, quando, de quê para quê.&#x27;;
+
+create index if not exists correcoes_por_inscricao
+  on public.correcoes_inscricao (inscricao_id, corrigido_em desc);
+
+alter table public.correcoes_inscricao enable row level security;
+
+/* Ler: quem enxerga a inscrição enxerga o histórico dela. Escrever: ninguém,
+   direto. Só a função abaixo grava, e ela roda com permissão própria — um
+   histórico que o interessado pode editar não serve de histórico. */
+drop policy if exists &quot;correcoes: quem ve a inscricao ve o historico&quot; on public.correcoes_inscricao;
+create policy &quot;correcoes: quem ve a inscricao ve o historico&quot; on public.correcoes_inscricao
+  for select using (
+    exists (
+      select 1 from public.inscricoes i
+      where i.id = inscricao_id
+        and (i.titular_id = auth.uid() or public.manda_no_evento(i.evento_id))
+    )
+  );
+
+revoke insert, update, delete on public.correcoes_inscricao from anon, authenticated;
+grant select on public.correcoes_inscricao to authenticated;
+
+-- -----------------------------------------------------------------------------
+-- 2. A correção
+--    SECURITY DEFINER de propósito. A alternativa seria abrir UPDATE na tabela
+--    para o titular, mas as políticas do Postgres decidem por LINHA, não por
+--    COLUNA: quem pudesse corrigir o nome poderia, na mesma tacada, marcar a
+--    própria inscrição como paga. Aqui as colunas que se pode tocar são as
+--    quatro escritas abaixo, e ponto.
+-- -----------------------------------------------------------------------------
+create or replace function public.corrigir_inscricao(
+  p_id          uuid,
+  p_nome        text,
+  p_nascimento  date    default null,
+  p_email       text    default &#x27;&#x27;,
+  p_telefone    text    default &#x27;&#x27;
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_ins     public.inscricoes;
+  v_evento  public.eventos;
+  v_manda   boolean;
+  v_antes   jsonb;
+  v_depois  jsonb;
+begin
+  if auth.uid() is null then
+    raise exception &#x27;Entre na sua conta para corrigir a inscrição.&#x27; using errcode = &#x27;28000&#x27;;
+  end if;
+
+  if coalesce(btrim(p_nome), &#x27;&#x27;) = &#x27;&#x27; then
+    raise exception &#x27;O nome não pode ficar em branco.&#x27; using errcode = &#x27;22023&#x27;;
+  end if;
+  if length(btrim(p_nome)) &lt; 3 then
+    raise exception &#x27;Escreva o nome completo do participante.&#x27; using errcode = &#x27;22023&#x27;;
+  end if;
+
+  select * into v_ins from public.inscricoes where id = p_id;
+  if not found then
+    raise exception &#x27;Inscrição não encontrada.&#x27; using errcode = &#x27;22023&#x27;;
+  end if;
+
+  select * into v_evento from public.eventos where id = v_ins.evento_id;
+  v_manda := public.manda_no_evento(v_ins.evento_id);
+
+  if not v_manda then
+    if v_ins.titular_id &lt;&gt; auth.uid() then
+      raise exception &#x27;Esta inscrição não é sua.&#x27; using errcode = &#x27;42501&#x27;;
+    end if;
+    if v_ins.status = &#x27;cancelada&#x27; then
+      raise exception &#x27;Esta inscrição está cancelada. Fale com a organização.&#x27; using errcode = &#x27;22023&#x27;;
+    end if;
+    if v_evento.resultados_publicados then
+      raise exception &#x27;O resultado desta prova já saiu; o nome não muda mais. Fale com a organização.&#x27;
+        using errcode = &#x27;22023&#x27;;
+    end if;
+    if v_evento.data is not null and v_evento.data &lt; current_date then
+      raise exception &#x27;Esta prova já aconteceu. Fale com a organização.&#x27; using errcode = &#x27;22023&#x27;;
+    end if;
+  end if;
+
+  v_antes := jsonb_build_object(
+    &#x27;participante_nome&#x27;, v_ins.participante_nome,
+    &#x27;participante_nascimento&#x27;, v_ins.participante_nascimento,
+    &#x27;participante_email&#x27;, v_ins.participante_email,
+    &#x27;participante_telefone&#x27;, v_ins.participante_telefone
+  );
+  v_depois := jsonb_build_object(
+    &#x27;participante_nome&#x27;, btrim(p_nome),
+    &#x27;participante_nascimento&#x27;, p_nascimento,
+    &#x27;participante_email&#x27;, coalesce(btrim(p_email), &#x27;&#x27;),
+    &#x27;participante_telefone&#x27;, coalesce(btrim(p_telefone), &#x27;&#x27;)
+  );
+
+  -- Nada mudou: não grava linha de histórico à toa.
+  if v_antes = v_depois then
+    return to_jsonb(v_ins);
+  end if;
+
+  update public.inscricoes
+     set participante_nome       = btrim(p_nome),
+         participante_nascimento = p_nascimento,
+         participante_email      = coalesce(btrim(p_email), &#x27;&#x27;),
+         participante_telefone   = coalesce(btrim(p_telefone), &#x27;&#x27;)
+   where id = p_id
+  returning * into v_ins;
+
+  insert into public.correcoes_inscricao
+    (inscricao_id, alterado_por, pela_organizacao, antes, depois)
+  values (p_id, auth.uid(), v_manda, v_antes, v_depois);
+
+  return to_jsonb(v_ins);
+end $$;
+
+revoke all on function public.corrigir_inscricao(uuid, text, date, text, text) from public, anon;
+grant execute on function public.corrigir_inscricao(uuid, text, date, text, text) to authenticated;
+</textarea>
+
+<p class="muted">Enquanto isto n&atilde;o for rodado, os bot&otilde;es de corrigir aparecem mas d&atilde;o um aviso de erro. O resto do site segue normal.</p>
+</div>
+<script>
+document.getElementById("btn").onclick = async () => {
+  const t = document.getElementById("sql");
+  try { await navigator.clipboard.writeText(t.value); }
+  catch (e) { t.focus(); t.select(); document.execCommand("copy"); }
+  document.getElementById("msg").textContent = "Copiado! Agora cole no Supabase.";
+};
+</script>

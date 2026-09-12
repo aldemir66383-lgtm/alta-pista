@@ -186,6 +186,42 @@ await teste("pendurar comprovante na inscrição de outra pessoa", async () => {
   confere(!r.ok, "BRECHA GRAVE: dá para anexar comprovante em inscrição alheia");
 });
 
+await teste("corrigir o nome de uma inscrição sem conta", async () => {
+  // A correção é o caminho mais curto entre "arrumar um acento" e "passar a
+  // inscrição paga de outra pessoa para o meu nome". Sem conta, nem começa.
+  const r = await rest("rpc/corrigir_inscricao", {
+    method: "POST",
+    body: JSON.stringify({
+      p_id: "00000000-0000-0000-0000-000000000000",
+      p_nome: "INVASOR DA SILVA"
+    })
+  });
+  confere(!r.ok, "BRECHA GRAVE: dá para corrigir inscrição sem conta");
+});
+
+await teste("ler o histórico de correções de outras pessoas", async () => {
+  const r = await rest("correcoes_inscricao?select=inscricao_id,antes,depois");
+  if (r.ok) {
+    const j = await r.json();
+    confere(Array.isArray(j) && j.length === 0,
+      "VAZAMENTO: o histórico de correções foi lido sem conta");
+  } else {
+    confere([400, 401, 403, 404].includes(r.status), "esperava recusa, veio " + r.status);
+  }
+});
+
+await teste("forjar uma linha no histórico de correções", async () => {
+  // O histórico só vale como prova se nem o interessado puder escrever nele.
+  const r = await rest("correcoes_inscricao", {
+    method: "POST",
+    body: JSON.stringify({
+      inscricao_id: "00000000-0000-0000-0000-000000000000",
+      antes: {}, depois: {}
+    })
+  });
+  confere(!r.ok, "BRECHA GRAVE: dá para escrever no histórico de correções");
+});
+
 await teste("descobrir quem é organizador", async () => {
   const r = await rest("organizadores?select=user_id");
   const j = await r.json();

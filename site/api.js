@@ -314,6 +314,33 @@ async function inscricoesComAnexo(ordem) {
 export async function minhasInscricoes() {
   return inscricoesComAnexo("criado_em");
 }
+/**
+ * Corrige nome, nascimento, e-mail e telefone de uma inscrição.
+ *
+ * Passa por função no banco, e não por um update direto, porque as políticas
+ * do Postgres decidem por linha e não por coluna: se abríssemos a tabela para
+ * o titular corrigir o nome, ele poderia na mesma tacada marcar a própria
+ * inscrição como paga. Ver supabase/0026_corrigir_a_inscricao.sql.
+ */
+export async function corrigirInscricao(dados) {
+  return conferir(await sb.rpc("corrigir_inscricao", {
+    p_id: dados.id,
+    p_nome: dados.nome,
+    p_nascimento: dados.nascimento || null,
+    p_email: dados.email || "",
+    p_telefone: dados.telefone || ""
+  }));
+}
+
+/** O histórico de correções de uma inscrição. Vazio se a 0026 não rodou. */
+export async function correcoesDaInscricao(inscricaoId) {
+  const r = await sb.from("correcoes_inscricao")
+    .select("antes, depois, pela_organizacao, corrigido_em")
+    .eq("inscricao_id", inscricaoId)
+    .order("corrigido_em", { ascending: false });
+  return r.error ? [] : (r.data || []);
+}
+
 export async function gerarCobrancaGateway(inscricaoId) {
   const naoDelegar = msg => {           // erro que autoriza cair na função do banco
     const e = new Error(msg);
